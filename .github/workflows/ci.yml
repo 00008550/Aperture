@@ -19,7 +19,7 @@ jobs:
     name: Backend — build and test
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: actions/setup-dotnet@v4
         with:
@@ -69,7 +69,7 @@ jobs:
       run:
         working-directory: frontend/console
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: actions/setup-node@v4
         with:
@@ -89,7 +89,7 @@ jobs:
     name: Architecture invariants
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # scripts/measure.sh gate fails the build on the two rules that are worth failing
       # a build over, both from CLAUDE.md:
