@@ -144,6 +144,7 @@ that is the point of building it first — but lands in plan 007.
 clean with warnings-as-errors; both `dotnet new xunit` placeholder tests are deleted.
 **Tests:** all eleven, by name.
 **Risk:** low — pure primitives, no infrastructure.
+**Reviewed:** 2 findings, both fixed (`d512c8d`, `d88fc5f`). PR body: `pr/001-P1.md`.
 
 ### [ ] P2 — Access module schema: tenants, users, roles, permission grants, scope grants
 **Touches:** `src/Modules/Access/**`, EF migration, `deploy/docker-compose.yml`
