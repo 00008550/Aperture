@@ -1,6 +1,6 @@
 # 001 — Tenancy, identity and the authorization spine
 
-Status: approved         <!-- draft → approved → in-progress → in-review → merged -->
+Status: in-review        <!-- draft → approved → in-progress → in-review → merged -->
 Roadmap: ARCHITECTURE.md §13 item 001
 Measured: `scripts/measure.sh all`, 2026-08-29, on commit `2232426`
 
@@ -138,7 +138,7 @@ that is the point of building it first — but lands in plan 007.
 
 ## Portions
 
-### [ ] P1 — Tenant context, data scopes, permission registry
+### [x] P1 — Tenant context, data scopes, permission registry
 **Touches:** `src/Aperture.SharedKernel/**`, `src/Aperture.SharedKernel.Tests/**`
 **Done when:** the eleven edge cases above have named passing tests; `dotnet build Aperture.slnx` is
 clean with warnings-as-errors; both `dotnet new xunit` placeholder tests are deleted.
