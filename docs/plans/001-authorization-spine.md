@@ -146,7 +146,7 @@ clean with warnings-as-errors; both `dotnet new xunit` placeholder tests are del
 **Risk:** low — pure primitives, no infrastructure.
 **Reviewed:** 2 findings, both fixed (`d512c8d`, `d88fc5f`). PR body: `pr/001-P1.md`.
 
-### [ ] P2 — Access module schema: tenants, users, roles, permission grants, scope grants
+### [x] P2 — Access module schema: tenants, users, roles, permission grants, scope grants
 **Touches:** `src/Modules/Access/**`, EF migration, `deploy/docker-compose.yml`
 **Done when:** `dotnet ef database update` produces the `access` schema against the compose
 Postgres; every tenant-owned entity has the global query filter; a convention test enumerates entity

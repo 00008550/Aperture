@@ -2,7 +2,9 @@ using Aperture.Modules.Access;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddAccessModule();
+builder.Services.AddAccessModule(
+    builder.Configuration.GetConnectionString("Aperture")
+    ?? "Host=localhost;Port=5433;Database=aperture;Username=aperture;Password=aperture");
 
 // Split liveness from readiness: a readiness probe that reports dependencies is what
 // makes a rolling deploy fail safely (ARCHITECTURE.md §10).

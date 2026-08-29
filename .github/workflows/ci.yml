@@ -109,7 +109,6 @@ jobs:
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
 
-  # Placeholder for the job 001-P2 needs: apply EF migrations against a real Postgres
-  # service container and assert every tenant-owned entity carries the query filter.
-  # Deliberately not written yet — there is no schema to migrate, and a job that tests
-  # nothing is the failure this repo is about.
+# Note on the backend job: the Access module's tests spin up PostgreSQL through
+# Testcontainers and apply the real migration, so they need a Docker daemon. ubuntu-latest
+# provides one; a self-hosted runner would need docker available to the job user.
