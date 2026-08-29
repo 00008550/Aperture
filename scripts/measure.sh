@@ -114,11 +114,65 @@ tests() {
   printf '  %s spec files under frontend/\n' "$specs"
 }
 
+# The two invariants worth failing a build over. Both are cheap greps, both encode a
+# rule from CLAUDE.md, and both currently pass trivially because the surfaces they
+# guard do not exist yet — which is the point of adding them before the surfaces do.
+gate() {
+  local failures=0
+
+  hr "GATE 1 — every mapped route carries an authorization policy (CLAUDE.md invariant 4)"
+  local unpoliced
+  unpoliced=$(endpoints | grep -c 'NO POLICY' || true)
+  if [ "$unpoliced" -gt 0 ]; then
+    endpoints | grep 'NO POLICY'
+    printf '  FAIL: %d route(s) mapped without a policy\n' "$unpoliced"
+    failures=$((failures + 1))
+  else
+    printf '  pass\n'
+  fi
+
+  hr "GATE 2 — raw SQL passes tenant_id explicitly (CLAUDE.md invariant 2)"
+  # EF inherits the global query filter; Dapper and FromSql do not. A raw statement
+  # with no tenant_id in sight is a cross-tenant read, not a style preference.
+  local leaked=0
+  while IFS= read -r hit; do
+    [ -z "$hit" ] && continue
+    local file=${hit%%:*}
+    local rest=${hit#*:}
+    local lineno=${rest%%:*}
+    if ! sed -n "$((lineno > 4 ? lineno - 4 : 1)),$((lineno + 12))p" "$file" | grep -qi 'tenant'; then
+      printf '  %s:%s  raw SQL with no tenant_id nearby\n' "${file#./}" "$lineno"
+      leaked=$((leaked + 1))
+    fi
+    # Matched on Dapper/EF raw-SQL entry points specifically. A bare `ExecuteAsync(`
+    # was the first pattern here and it flagged BackgroundService.ExecuteAsync — a gate
+    # that cries wolf gets disabled, so it is narrow on purpose.
+  done < <(grep -rn --include=*.cs -E 'FromSql(Raw|Interpolated)?|ExecuteSql(Raw|Interpolated)?|\.Query(Async|First|FirstAsync|Single|SingleAsync|Multiple)?<|Dapper' src 2>/dev/null)
+  if [ "$leaked" -gt 0 ]; then
+    printf '  FAIL: %d raw SQL call(s) with no visible tenant predicate\n' "$leaked"
+    failures=$((failures + 1))
+  else
+    printf '  pass\n'
+  fi
+
+  hr "ADVISORY (not a build failure)"
+  permissions | grep -E 'never enforced' || true
+  tests | grep -E 'NO TESTS|spec files' || true
+
+  printf '\n'
+  if [ "$failures" -gt 0 ]; then
+    printf 'GATE FAILED: %d invariant(s) violated\n' "$failures"
+    return 1
+  fi
+  printf 'GATE PASSED\n'
+}
+
 case "${1:-all}" in
   endpoints) endpoints ;;
+  gate) gate ;;
   permissions) permissions ;;
   schema) schema ;;
   tests) tests ;;
   all) endpoints; permissions; schema; tests ;;
-  *) echo "usage: $0 {endpoints|permissions|schema|tests|all}"; exit 2 ;;
+  *) echo "usage: $0 {gate|endpoints|permissions|schema|tests|all}"; exit 2 ;;
 esac
