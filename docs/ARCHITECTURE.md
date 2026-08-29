@@ -220,10 +220,11 @@ every survey and corrects it in place. A `✅` that no measurement supports is a
 | Capability | State | Where | Verified by |
 |---|---|---|---|
 | Solution skeleton, module registration | ✅ built | `src/` | `dotnet build` |
-| Tenant context + fail-closed scope primitives | ✅ built | `Aperture.SharedKernel` | `Aperture.SharedKernel.Tests` |
-| Permission registry + policy provider | ✅ built | `Aperture.SharedKernel`, `Aperture.Api` | `Aperture.SharedKernel.Tests` |
-| Access module: tenants, users, roles, scopes | ◐ partial | `src/Modules/Access` | migration pending (001-P2) |
-| Authentication (JWT) | ☐ planned | — | 001-P2 |
+| Tenant context + fail-closed scope primitives | ✅ built | `Aperture.SharedKernel/Multitenancy`, `/Authorization` | 19 tests, `Aperture.SharedKernel.Tests` (001-P1) |
+| Permission registry | ✅ built | `Aperture.SharedKernel/Authorization/Permissions.cs` | 19 tests, `Aperture.SharedKernel.Tests` (001-P1) |
+| Permission policy provider | ☐ planned | — | 001-P3 |
+| Access module: tenants, users, roles, scopes | ☐ planned | `src/Modules/Access` — an empty registration extension, nothing else | 001-P2 |
+| Authentication (JWT) | ☐ planned | — | 001-P3 |
 | Sales: accounts, contacts, deals | ☐ planned | — | 002 |
 | Orders + fulfilment state machine | ☐ planned | — | 003 |
 | Stock reservation under contention | ☐ planned | — | 003 |
