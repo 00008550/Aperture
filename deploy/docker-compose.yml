@@ -1,3 +1,8 @@
+# Host ports are deliberately off the defaults: this machine runs long-lived
+# containers from another project on 5432 / 5672 / 15672 / 6379 / 9092. Container-side
+# ports are unchanged, so connection strings inside the compose network stay standard.
+name: aperture   # without this the project is named after the folder ("deploy")
+
 services:
   db:
     image: postgres:17-alpine
@@ -17,7 +22,7 @@ services:
     environment:
       RABBITMQ_DEFAULT_USER: aperture
       RABBITMQ_DEFAULT_PASS: aperture
-    ports: ["5672:5672", "15672:15672"]
+    ports: ["5673:5672", "15673:15672"]
 
 volumes:
   aperture-db:
