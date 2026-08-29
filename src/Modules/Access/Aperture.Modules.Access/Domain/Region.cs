@@ -3,8 +3,9 @@ using Aperture.SharedKernel.Multitenancy;
 namespace Aperture.Modules.Access.Domain;
 
 /// <summary>
-/// A sales region — the target of a <see cref="ScopeGrantKind.Region"/> grant. Thin for the
-/// same reason as <see cref="Team"/>.
+/// A sales region — the target of a <see cref="ScopeGrantKind.Region"/> grant. As with
+/// <see cref="Team"/>, <c>scope_grants.target_id</c> carries no foreign key to this table
+/// because the column is polymorphic; see <see cref="Team"/> for what that costs.
 /// </summary>
 public sealed class Region : ITenantOwned
 {

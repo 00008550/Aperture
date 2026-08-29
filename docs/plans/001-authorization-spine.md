@@ -148,6 +148,14 @@ clean with warnings-as-errors; both `dotnet new xunit` placeholder tests are del
 
 ### [x] P2 — Access module schema: tenants, users, roles, permission grants, scope grants
 **Touches:** `src/Modules/Access/**`, EF migration, `deploy/docker-compose.yml`
+**Touches (amended in review, 001-P2):** also `Directory.Packages.props` and three `.csproj`
+(the portion's own packages pulled two EF versions — MSB3277, which warnings-as-errors does not
+catch), `Aperture.slnx` (the test project P1's review removed), `src/Aperture.Api/Program.cs`
+(the module's registration now needs a connection string), `scripts/measure.sh` +
+`scripts/measure_schema.awk` (the schema measurement only became wrong once a schema existed:
+it reported one table per file and counted migration snapshots), and `README.md` +
+`.github/workflows/ci.yml` (both described a migration job as "not written yet" that this
+portion writes).
 **Done when:** `dotnet ef database update` produces the `access` schema against the compose
 Postgres; every tenant-owned entity has the global query filter; a convention test enumerates entity
 types and fails if one lacks it.
