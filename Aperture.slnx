@@ -8,7 +8,6 @@
   </Folder>
   <Folder Name="/src/Modules/" />
   <Folder Name="/src/Modules/Access/">
-    <Project Path="src/Modules/Access/Aperture.Modules.Access.Tests/Aperture.Modules.Access.Tests.csproj" />
     <Project Path="src/Modules/Access/Aperture.Modules.Access/Aperture.Modules.Access.csproj" />
   </Folder>
 </Solution>

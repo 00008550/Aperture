@@ -93,11 +93,15 @@ tests() {
       printf '  %-58s %3s test methods\n' "${p#./}" "$facts"
     done <<< "$projs"
   fi
-  hr "MODULES WITHOUT A TEST PROJECT"
+  hr "MODULES WITHOUT TESTS"
+  # Counts test METHODS, not .csproj files: an empty test project is worse than none,
+  # because dotnet test still exits 0 and the module looks covered. (001-P1 review.)
   local none=0
   while IFS= read -r mod; do
     local name=$(basename "$mod")
-    if ! find "$mod" -name '*.Tests.csproj' | grep -q .; then
+    local n
+    n=$(grep -rc --include=*.cs -E '^\s*\[(Fact|Theory)' "$mod" 2>/dev/null | awk -F: '{s+=$2} END{print s+0}')
+    if [ "${n:-0}" -eq 0 ]; then
       printf '  %-20s *** NO TESTS *** — a green dotnet test proves nothing about it\n' "$name"
       none=$((none + 1))
     fi
