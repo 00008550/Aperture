@@ -1,5 +1,7 @@
 # Aperture
 
+[![CI](https://github.com/00008550/Aperture/actions/workflows/ci.yml/badge.svg)](https://github.com/00008550/Aperture/actions/workflows/ci.yml)
+
 A multi-tenant B2B **order & deal desk** — accounts and contacts → deals → orders → fulfilment, with
 a unified communication timeline, supplier integrations, and an in-product AI assistant.
 
@@ -60,6 +62,7 @@ cd frontend/console && npm install && npm run dev   # http://localhost:5173
 Documents drift; the code does not. Before planning anything, the workflow measures:
 
 ```bash
+scripts/measure.sh gate           # the two invariants CI fails the build on
 scripts/measure.sh endpoints      # every route and its authorization policy
 scripts/measure.sh permissions    # declared permissions vs. enforced ones
 scripts/measure.sh schema         # tables and mapped columns per module schema
@@ -68,3 +71,21 @@ scripts/measure.sh tests          # test counts, and modules that have none
 
 `ARCHITECTURE.md` §12 is corrected against that output on every survey. A ✅ nobody measured is a
 bug in the document.
+
+## CI
+
+[`.github/workflows/ci.yml`](.github/workflows/ci.yml) runs three jobs on every push and PR:
+
+- **Backend** — build in Release with warnings-as-errors, run the tests, then **assert from the
+  `.trx` that a non-zero number of tests actually executed**. A run that discovers zero tests must
+  not read as success; that was a review finding on the very first portion.
+- **Frontend** — `npm ci` and `tsc -b && vite build`, with `strict`, `noUncheckedIndexedAccess` and
+  `exactOptionalPropertyTypes` on.
+- **Architecture invariants** — `scripts/measure.sh gate` fails the build on the two rules from
+  `CLAUDE.md` worth failing a build over: a mapped route with no authorization policy, and a raw
+  SQL call with no tenant predicate. The full measurement is published to the run summary, so every
+  build records what the code actually contains.
+
+The migration job that 001-P2 needs — apply EF migrations against a real Postgres service container
+and assert every tenant-owned entity carries the query filter — is deliberately **not** written yet.
+There is no schema to migrate, and a job that tests nothing is the failure this repo is about.
