@@ -1,0 +1,14 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Aperture.Api/Aperture.Api.csproj" />
+    <Project Path="src/Aperture.Contracts/Aperture.Contracts.csproj" />
+    <Project Path="src/Aperture.SharedKernel.Tests/Aperture.SharedKernel.Tests.csproj" />
+    <Project Path="src/Aperture.SharedKernel/Aperture.SharedKernel.csproj" />
+    <Project Path="src/Aperture.Worker/Aperture.Worker.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/" />
+  <Folder Name="/src/Modules/Access/">
+    <Project Path="src/Modules/Access/Aperture.Modules.Access.Tests/Aperture.Modules.Access.Tests.csproj" />
+    <Project Path="src/Modules/Access/Aperture.Modules.Access/Aperture.Modules.Access.csproj" />
+  </Folder>
+</Solution>

@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <ItemGroup>
+    <ProjectReference Include="..\Aperture.SharedKernel\Aperture.SharedKernel.csproj" />
+    <ProjectReference Include="..\Aperture.Contracts\Aperture.Contracts.csproj" />
+    <ProjectReference Include="..\Modules\Access\Aperture.Modules.Access\Aperture.Modules.Access.csproj" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+</Project>

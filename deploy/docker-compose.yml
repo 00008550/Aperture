@@ -1,0 +1,23 @@
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: aperture
+      POSTGRES_USER: aperture
+      POSTGRES_PASSWORD: aperture
+    ports: ["5433:5432"]
+    volumes: ["aperture-db:/var/lib/postgresql/data"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U aperture -d aperture"]
+      interval: 5s
+      retries: 10
+
+  mq:
+    image: rabbitmq:4-management-alpine
+    environment:
+      RABBITMQ_DEFAULT_USER: aperture
+      RABBITMQ_DEFAULT_PASS: aperture
+    ports: ["5672:5672", "15672:15672"]
+
+volumes:
+  aperture-db:
