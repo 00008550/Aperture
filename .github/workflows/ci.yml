@@ -1,0 +1,115 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+  workflow_dispatch:
+
+# A second push to a PR should cancel the first run rather than queue behind it.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    name: Backend — build and test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Restore
+        run: dotnet restore Aperture.slnx
+
+      # Directory.Build.props sets TreatWarningsAsErrors, so a warning fails here.
+      # --no-restore keeps the restore failure separate from the compile failure.
+      - name: Build
+        run: dotnet build Aperture.slnx --configuration Release --no-restore
+
+      - name: Test
+        run: >
+          dotnet test Aperture.slnx
+          --configuration Release
+          --no-build
+          --logger "trx;LogFileName=test-results.trx"
+          --results-directory ./TestResults
+
+      # A test run that discovers zero tests must not read as success. This is the
+      # 001-P1 review finding turned into a build step.
+      - name: Assert tests actually ran
+        run: |
+          set -euo pipefail
+          total=$(grep -rhoP 'total="\K\d+' TestResults/*.trx | head -1)
+          echo "executed tests: ${total:-0}"
+          if [ "${total:-0}" -lt 1 ]; then
+            echo "::error::dotnet test discovered no tests — a green run here proves nothing"
+            exit 1
+          fi
+          echo "### ✅ $total backend tests executed" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: TestResults/
+          retention-days: 7
+
+  frontend:
+    name: Frontend — typecheck and build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend/console
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: frontend/console/package-lock.json
+
+      - name: Install
+        run: npm ci
+
+      # `npm run build` is `tsc -b && vite build`, so this covers the typecheck.
+      # tsconfig runs strict with noUncheckedIndexedAccess and exactOptionalPropertyTypes.
+      - name: Typecheck and build
+        run: npm run build
+
+  invariants:
+    name: Architecture invariants
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # scripts/measure.sh gate fails the build on the two rules that are worth failing
+      # a build over, both from CLAUDE.md:
+      #   1. every mapped route carries an authorization policy
+      #   2. every raw SQL call passes tenant_id explicitly — EF's global query filter
+      #      does not reach Dapper, which is the sharp edge of the tenancy design
+      - name: Gate
+        run: bash scripts/measure.sh gate
+
+      - name: Publish the measurement
+        if: always()
+        run: |
+          {
+            echo '## Ground truth'
+            echo '```'
+            bash scripts/measure.sh all
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  # Placeholder for the job 001-P2 needs: apply EF migrations against a real Postgres
+  # service container and assert every tenant-owned entity carries the query filter.
+  # Deliberately not written yet — there is no schema to migrate, and a job that tests
+  # nothing is the failure this repo is about.
