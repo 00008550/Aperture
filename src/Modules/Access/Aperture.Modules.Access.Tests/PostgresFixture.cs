@@ -36,6 +36,10 @@ public sealed class PostgresFixture : IAsyncLifetime
         // protecting, and the first broken migration reaches production green.
         await using var context = CreateContext(TenantId.New());
         await context.Database.MigrateAsync();
+
+        // The 001-P4 probe table. Created here so every test in the collection can assume it.
+        await using var probe = CreateScopeProbeContext();
+        await probe.Database.ExecuteSqlRawAsync(ScopeProbeDbContext.CreateTableSql);
     }
 
     public Task DisposeAsync() => _container.DisposeAsync().AsTask();
@@ -44,6 +48,12 @@ public sealed class PostgresFixture : IAsyncLifetime
         new(
             new DbContextOptionsBuilder<AccessDbContext>().UseAccessNpgsql(ConnectionString).Options,
             new FixedTenantContext(tenant));
+
+    /// <summary>The 001-P4 scope-translation probe. Not tenant-filtered: the point of the test
+    /// is that the <em>scope predicate</em> carries the tenant boundary itself, so a global query
+    /// filter here would hide a fail-open translation.</summary>
+    public ScopeProbeDbContext CreateScopeProbeContext() =>
+        new(new DbContextOptionsBuilder<ScopeProbeDbContext>().UseNpgsql(ConnectionString).Options);
 
     private sealed class FixedTenantContext(TenantId tenantId) : ITenantContext
     {

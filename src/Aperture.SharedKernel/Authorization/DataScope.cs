@@ -1,3 +1,4 @@
+using System.Linq.Expressions;
 using Aperture.SharedKernel.Multitenancy;
 
 namespace Aperture.SharedKernel.Authorization;
@@ -16,11 +17,26 @@ public abstract record DataScope
     /// <summary>Whether this single grant admits <paramref name="resource"/>.</summary>
     public abstract bool Admits(IScopedResource resource);
 
+    /// <summary>
+    /// The same rule as <see cref="Admits"/>, expressed as a boolean expression over
+    /// <paramref name="row"/> so a query provider can turn it into a <c>WHERE</c> clause
+    /// (001-P4).
+    /// <para>
+    /// Abstract rather than a <c>switch</c> in the translator on purpose: a new scope kind then
+    /// fails to compile until it says how it filters, instead of falling into a default branch
+    /// and filtering nothing.
+    /// </para>
+    /// </summary>
+    public abstract Expression ToPredicateBody(ScopeRowExpressions row);
+
     /// <summary>Rows the user owns.</summary>
     public sealed record Self(UserId UserId) : DataScope
     {
         public override bool Admits(IScopedResource resource) =>
             resource.OwnerUserId == UserId;
+
+        public override Expression ToPredicateBody(ScopeRowExpressions row) =>
+            Expression.Equal(row.OwnerUserId, ScopeRowExpressions.Parameterised(UserId));
     }
 
     /// <summary>Rows owned by a team. A row with no team is not admitted.</summary>
@@ -28,6 +44,11 @@ public abstract record DataScope
     {
         public override bool Admits(IScopedResource resource) =>
             resource.TeamId is { } team && team == TeamId;
+
+        // Compared as a nullable Guid, so a row with no team yields SQL NULL = @p, which is
+        // unknown and therefore not a match. Absent data narrows; it never widens.
+        public override Expression ToPredicateBody(ScopeRowExpressions row) =>
+            Expression.Equal(row.TeamId, ScopeRowExpressions.Parameterised<Guid?>(TeamId));
     }
 
     /// <summary>Rows in a region. A row with no region is not admitted.</summary>
@@ -35,6 +56,11 @@ public abstract record DataScope
     {
         public override bool Admits(IScopedResource resource) =>
             resource.RegionId is { } region && region == RegionId;
+
+        // Compared as a nullable Guid, so a row with no region yields SQL NULL = @p, which is
+        // unknown and therefore not a match. Absent data narrows; it never widens.
+        public override Expression ToPredicateBody(ScopeRowExpressions row) =>
+            Expression.Equal(row.RegionId, ScopeRowExpressions.Parameterised<Guid?>(RegionId));
     }
 
     /// <summary>One named account — for a key-account handler.</summary>
@@ -42,6 +68,11 @@ public abstract record DataScope
     {
         public override bool Admits(IScopedResource resource) =>
             resource.AccountId is { } account && account == AccountId;
+
+        // Compared as a nullable Guid, so a row with no account yields SQL NULL = @p, which is
+        // unknown and therefore not a match. Absent data narrows; it never widens.
+        public override Expression ToPredicateBody(ScopeRowExpressions row) =>
+            Expression.Equal(row.AccountId, ScopeRowExpressions.Parameterised<Guid?>(AccountId));
     }
 
     /// <summary>
@@ -52,5 +83,10 @@ public abstract record DataScope
     public sealed record AllTenant : DataScope
     {
         public override bool Admits(IScopedResource resource) => true;
+
+        // True inside the tenant. The tenant equality itself is added by the translator and
+        // cannot be reached past, so this is never "every row in the database".
+        public override Expression ToPredicateBody(ScopeRowExpressions row) =>
+            Expression.Constant(true);
     }
 }

@@ -185,13 +185,20 @@ resolved `AccessPrincipal` and nothing else. (2) All five authentication deny pa
 the resolver now returns an `AccessDenialReason` and each refusal is logged as a structured
 warning. Audit rows remain 001-P6.
 
-### [ ] P4 — Scope → SQL predicate translation
+### [x] P4 — Scope → SQL predicate translation
 **Touches:** `src/Aperture.SharedKernel/Authorization/**`, `src/Modules/Access/**`
+**Touches (amended while building, 001-P4):** also `src/Aperture.SharedKernel.Tests/**` (the
+predicate's semantics are asserted against the in-memory rule there, where no database is needed)
+and `scripts/measure.sh` (the schema measurement counted the test-only probe table as a module
+table; the scan now skips test projects).
 **Done when:** a `DataScopeSet` becomes an `Expression<Func<T, bool>>` composed into the query, and
 an integration test proves the filter runs **in SQL** (asserted against the generated SQL, not the
 result count — a result count passes just as well for an in-memory filter, which is the bug).
 **Tests:** each scope kind; the union; the empty set producing a predicate that matches nothing.
 **Risk:** high — this is where a fail-open regression would be invisible.
+**Reviewed:** no findings. The empty set emits `WHERE FALSE`, the tenant conjunct sits outside the
+union and no scope reaches past it, and the predicate binds concrete properties so nothing
+client-evaluates. PR body: `pr/001-P4.md`.
 
 ### [ ] P5 — Console: sign-in, session, permission-gated navigation
 **Touches:** `frontend/console/**`

@@ -82,9 +82,12 @@ permissions() {
 schema() {
   hr "SCHEMA (module -> schema -> tables -> mapped columns)"
   # Migrations and model snapshots are generated restatements of the configurations; counting
-  # them reported every table three times.
+  # them reported every table three times. Test projects are excluded for a different reason:
+  # 001-P4 maps a probe table inside Aperture.Modules.Access.Tests, and counting it reported a
+  # table that no migration creates and no module owns — a measurement that overstates the
+  # schema is worse than none.
   local files
-  files=$(grep -rl --include=*.cs 'ToTable(' src 2>/dev/null | grep -v '/Migrations/' | sort)
+  files=$(grep -rl --include=*.cs 'ToTable(' src 2>/dev/null | grep -v '/Migrations/' | grep -v '\.Tests/' | sort)
   if [ -z "$files" ]; then
     printf '  no EF entity configurations found yet\n'
   else
