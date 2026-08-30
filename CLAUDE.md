@@ -98,7 +98,8 @@ verify in the browser. Never ask the user to check manually.
 to build, test, and review on their own. `docs/plans/STATE.md` is the index.
 
 Plans are written by `ap-surveyor`, executed one portion at a time by `ap-builder`, and judged by
-`ap-reviewer`. A portion's checkbox is ticked only after review passes. Only the **user** moves a
+`ap-reviewer`. A portion's checkbox is ticked by `ap-reviewer`, and only after review passes — never by the
+builder, and never as a way of recording that the build finished. Only the **user** moves a
 plan from `draft` to `approved`.
 
 ## Git

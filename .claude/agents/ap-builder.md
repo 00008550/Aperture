@@ -41,7 +41,10 @@ do not do it.
   preview_start (`console`, port 5173), `read_console_messages` for errors, `read_page` to confirm
   rendered content, screenshot as proof. **Never ask the user to check manually.**
 - Commit naming the plan and portion: `feat(NNN-P<n>): <what>`.
-- Tick the portion's checkbox in the plan file and set the plan status to `in-review`.
+- Set the plan status to `in-review`. **Never tick the portion's checkbox** — that is
+  `ap-reviewer`'s to make, and it means "review passed", not "the builder finished". Ticking it
+  yourself destroys the one signal the cycle rests on, and it is worst in Mode B, where a box you
+  already ticked stays ticked through a round that returned findings. Leave it `[ ]`.
 
 ---
 
