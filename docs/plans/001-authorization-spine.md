@@ -187,6 +187,10 @@ warning. Audit rows remain 001-P6.
 
 ### [ ] P4 — Scope → SQL predicate translation
 **Touches:** `src/Aperture.SharedKernel/Authorization/**`, `src/Modules/Access/**`
+**Touches (amended while building, 001-P4):** also `src/Aperture.SharedKernel.Tests/**` (the
+predicate's semantics are asserted against the in-memory rule there, where no database is needed)
+and `scripts/measure.sh` (the schema measurement counted the test-only probe table as a module
+table; the scan now skips test projects).
 **Done when:** a `DataScopeSet` becomes an `Expression<Func<T, bool>>` composed into the query, and
 an integration test proves the filter runs **in SQL** (asserted against the generated SQL, not the
 result count — a result count passes just as well for an in-memory filter, which is the bug).
