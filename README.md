@@ -57,6 +57,11 @@ dotnet run --project src/Aperture.Api          # http://localhost:5080
 cd frontend/console && npm install && npm run dev   # http://localhost:5173
 ```
 
+The API refuses to start without `Authentication:Issuer`, `Authentication:Audience` and
+`Authentication:SigningKey`. `appsettings.Development.json` supplies obviously-local values so the
+command above works; `appsettings.json` deliberately supplies none, so no other environment can
+inherit a signing key that shipped in this repository.
+
 ## Measuring it
 
 Documents drift; the code does not. Before planning anything, the workflow measures:

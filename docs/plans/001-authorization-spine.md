@@ -162,8 +162,15 @@ types and fails if one lacks it.
 **Tests:** the convention test; round-trip persistence; cross-tenant read returns nothing.
 **Risk:** medium — the query-filter convention test is the load-bearing part.
 
-### [ ] P3 — JWT authentication, permission policy provider, `GET /api/me`
+### [x] P3 — JWT authentication, permission policy provider, `GET /api/me`
 **Touches:** `src/Aperture.Api/**`, `src/Modules/Access/**`
+**Touches (amended while building, 001-P3):** also `src/Aperture.Api.Tests/**` (a new test project,
+wired into `Aperture.slnx` — the API host had none), `Directory.Packages.props` (JwtBearer and
+Mvc.Testing), `scripts/measure.sh` (the route pattern is now any `Map<Something>("…")` and the
+policy scan runs to the end of the statement rather than six lines — the fixed window reported
+`/api/me` as unpoliced purely because its handler was long), `README.md` and
+`appsettings*.json` (the host now refuses to start without an issuer, audience and signing key),
+and `ARCHITECTURE.md` §12 (three rows, including the P2 row that still read `☐ planned`).
 **Done when:** `/api/me` returns tenant, user, permissions and scopes for a valid token and 401
 otherwise; a policy provider resolves `RequirePermission("x")` without a hand-registered policy per
 permission; `measure.sh endpoints` shows every route with a policy — and the tool is widened to see
@@ -171,6 +178,12 @@ permission; `measure.sh endpoints` shows every route with a policy — and the t
 **Tests:** unauthenticated 401; valid token 200; a token naming a tenant the user does not belong to
 is rejected; an endpoint mapped without a policy fails an architecture test.
 **Risk:** medium.
+**Reviewed:** 2 findings, both fixed. (1) The resolved permissions were *appended* to the token's
+own identity, and `ClaimsPrincipal.HasClaim` searches every identity — so a well-signed token
+naming its own `perm` claims satisfied `RequirePermission`. The principal is now rebuilt from the
+resolved `AccessPrincipal` and nothing else. (2) All five authentication deny paths were silent;
+the resolver now returns an `AccessDenialReason` and each refusal is logged as a structured
+warning. Audit rows remain 001-P6.
 
 ### [ ] P4 — Scope → SQL predicate translation
 **Touches:** `src/Aperture.SharedKernel/Authorization/**`, `src/Modules/Access/**`

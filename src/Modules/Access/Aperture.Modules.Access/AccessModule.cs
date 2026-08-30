@@ -1,3 +1,4 @@
+using Aperture.Modules.Access.Authentication;
 using Aperture.Modules.Access.Persistence;
 using Aperture.SharedKernel.Multitenancy;
 using Microsoft.Extensions.DependencyInjection;
@@ -15,6 +16,10 @@ public static class AccessModule
         services.TryAddTenantContext();
 
         services.AddDbContext<AccessDbContext>(options => options.UseAccessNpgsql(connectionString));
+
+        // Scoped: it holds the request's DbContext. The resolver is the only way anything
+        // outside this assembly learns what a user holds (001-P3).
+        services.AddScoped<IAccessPrincipalResolver, AccessPrincipalResolver>();
 
         return services;
     }

@@ -222,9 +222,9 @@ every survey and corrects it in place. A `✅` that no measurement supports is a
 | Solution skeleton, module registration | ✅ built | `src/` | `dotnet build` |
 | Tenant context + fail-closed scope primitives | ✅ built | `Aperture.SharedKernel/Multitenancy`, `/Authorization` | 19 tests, `Aperture.SharedKernel.Tests` (001-P1) |
 | Permission registry | ✅ built | `Aperture.SharedKernel/Authorization/Permissions.cs` | 19 tests, `Aperture.SharedKernel.Tests` (001-P1) |
-| Permission policy provider | ☐ planned | — | 001-P3 |
-| Access module: tenants, users, roles, scopes | ☐ planned | `src/Modules/Access` — an empty registration extension, nothing else | 001-P2 |
-| Authentication (JWT) | ☐ planned | — | 001-P3 |
+| Permission policy provider | ✅ built | `Aperture.Api/Authorization` | 32 tests, `Aperture.Api.Tests` (001-P3) |
+| Access module: tenants, users, roles, scopes | ✅ built | `src/Modules/Access` — 9 tables in the `access` schema | 15 tests against real PostgreSQL (001-P2) |
+| Authentication (JWT) + `GET /api/me` | ✅ built | `Aperture.Api/Authentication`, `Modules/Access/Authentication` | 32 tests, `Aperture.Api.Tests` (001-P3) |
 | Sales: accounts, contacts, deals | ☐ planned | — | 002 |
 | Orders + fulfilment state machine | ☐ planned | — | 003 |
 | Stock reservation under contention | ☐ planned | — | 003 |
