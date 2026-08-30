@@ -64,17 +64,18 @@ permissions() {
 
 schema() {
   hr "SCHEMA (module -> schema -> tables -> mapped columns)"
-  local any=0
-  while IFS= read -r f; do
-    any=1
-    local tbl sch cols
-    tbl=$(grep -oE 'ToTable\("[^"]+"' "$f" | head -1 | grep -oE '"[^"]+"' | tr -d '"')
-    sch=$(grep -oE 'ToTable\("[^"]+", *"[^"]+"' "$f" | head -1 | grep -oE '"[^"]+"$' | tr -d '"')
-    cols=$(grep -cE '\.Property\(' "$f")
-    [ -z "$tbl" ] && continue
-    printf '  %-12s %-24s %3s mapped columns   %s\n' "${sch:-<default>}" "$tbl" "$cols" "${f#./}"
-  done < <(grep -rl --include=*.cs 'ToTable(' src 2>/dev/null | sort)
-  [ "$any" -eq 0 ] && printf '  no EF entity configurations found yet\n'
+  # Migrations and model snapshots are generated restatements of the configurations; counting
+  # them reported every table three times.
+  local files
+  files=$(grep -rl --include=*.cs 'ToTable(' src 2>/dev/null | grep -v '/Migrations/' | sort)
+  if [ -z "$files" ]; then
+    printf '  no EF entity configurations found yet\n'
+  else
+    local out
+    out=$(echo "$files" | xargs awk -f "$(dirname "$0")/measure_schema.awk" | sort)
+    echo "$out"
+    printf '\n  %s tables\n' "$(echo "$out" | grep -c 'mapped columns')"
+  fi
   hr "MIGRATIONS"
   local m
   m=$(find src -type d -name Migrations 2>/dev/null | wc -l)

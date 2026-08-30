@@ -86,6 +86,8 @@ bug in the document.
   SQL call with no tenant predicate. The full measurement is published to the run summary, so every
   build records what the code actually contains.
 
-The migration job that 001-P2 needs — apply EF migrations against a real Postgres service container
-and assert every tenant-owned entity carries the query filter — is deliberately **not** written yet.
-There is no schema to migrate, and a job that tests nothing is the failure this repo is about.
+The Access module's tests start PostgreSQL through **Testcontainers** and apply the real migration
+— not SQLite, not the in-memory provider. The things they assert (a check constraint, a unique
+index, the migration itself) either do not exist or behave differently on a substitute, so a test
+against one would prove the wrong thing. That means the backend job needs a Docker daemon;
+`ubuntu-latest` has one.

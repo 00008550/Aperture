@@ -1,3 +1,5 @@
+using Aperture.Modules.Access.Persistence;
+using Aperture.SharedKernel.Multitenancy;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Aperture.Modules.Access;
@@ -8,9 +10,20 @@ namespace Aperture.Modules.Access;
 /// </summary>
 public static class AccessModule
 {
-    public static IServiceCollection AddAccessModule(this IServiceCollection services)
+    public static IServiceCollection AddAccessModule(this IServiceCollection services, string connectionString)
     {
-        // Registrations land with 001-P2 (schema) and 001-P3 (authentication).
+        services.TryAddTenantContext();
+
+        services.AddDbContext<AccessDbContext>(options => options.UseAccessNpgsql(connectionString));
+
         return services;
+    }
+
+    private static void TryAddTenantContext(this IServiceCollection services)
+    {
+        if (services.All(d => d.ServiceType != typeof(ITenantContext)))
+        {
+            services.AddSingleton<ITenantContext, AmbientTenantContext>();
+        }
     }
 }

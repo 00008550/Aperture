@@ -1,0 +1,34 @@
+<Project>
+  <PropertyGroup>
+    <!-- One version of every package, decided here. Without this the EF version is whatever
+         the deepest transitive dependency happens to win with: EntityFrameworkCore.Design
+         pulled 10.0.11 into the module while the Npgsql provider pinned 10.0.4 into the test
+         project, and the two bound against different EF assemblies (MSB3277). That is an
+         MSBuild warning, not a compiler one, so TreatWarningsAsErrors does not catch it. -->
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+    <!-- Also pin what arrives transitively. The Npgsql provider depends on EF 10.0.4; without
+         this, that 10.0.4 keeps winning in projects that do not reference EF directly, and the
+         solution ships two EF versions side by side. -->
+    <CentralPackageTransitivePinningEnabled>true</CentralPackageTransitivePinningEnabled>
+  </PropertyGroup>
+
+  <ItemGroup Label="Data">
+    <PackageVersion Include="Microsoft.EntityFrameworkCore" Version="10.0.11" />
+    <PackageVersion Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.11" />
+    <PackageVersion Include="Microsoft.EntityFrameworkCore.Relational" Version="10.0.11" />
+    <PackageVersion Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.3" />
+  </ItemGroup>
+
+  <ItemGroup Label="Hosting">
+    <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.11" />
+    <PackageVersion Include="Microsoft.Extensions.Hosting" Version="10.0.11" />
+  </ItemGroup>
+
+  <ItemGroup Label="Testing">
+    <PackageVersion Include="coverlet.collector" Version="6.0.4" />
+    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageVersion Include="Testcontainers.PostgreSql" Version="4.14.0" />
+    <PackageVersion Include="xunit" Version="2.9.3" />
+    <PackageVersion Include="xunit.runner.visualstudio" Version="3.1.4" />
+  </ItemGroup>
+</Project>
