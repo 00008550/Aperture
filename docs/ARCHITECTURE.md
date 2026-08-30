@@ -225,6 +225,9 @@ every survey and corrects it in place. A `✅` that no measurement supports is a
 | Permission policy provider | ✅ built | `Aperture.Api/Authorization` | 32 tests, `Aperture.Api.Tests` (001-P3) |
 | Access module: tenants, users, roles, scopes | ✅ built | `src/Modules/Access` — 9 tables in the `access` schema | 15 tests against real PostgreSQL (001-P2) |
 | Authentication (JWT) + `GET /api/me` | ✅ built | `Aperture.Api/Authentication`, `Modules/Access/Authentication` | 32 tests, `Aperture.Api.Tests` (001-P3) |
+| Scope → SQL predicate (EF / `IQueryable` only) | ◐ on branch, unmerged | `Aperture.SharedKernel/Authorization/ScopeQuerying.cs` — branch `feat/001-P4-scope-sql-predicate`, PR [#17](https://github.com/00008550/Aperture/pull/17) | 84 tests on branch, 23 asserting generated SQL against real PostgreSQL (001-P4). **Not on `master`** — do not read this row as shipped |
+| Scope → SQL predicate for raw SQL / Dapper | ☐ planned | — | 009. **No counterpart exists**: `WhereInScope` covers `IQueryable` only, and invariant 2's "raw SQL must pass `tenant_id` explicitly" is today enforced by human review alone |
+| Dapper (as a dependency) | ☐ not present | — | measured 2026-08-30: no `PackageVersion`/`PackageReference` for Dapper anywhere, and zero raw-SQL call sites in `src/` outside test fixtures. §4's "Dapper owns list and report queries" is a design intent, not a description of the code |
 | Sales: accounts, contacts, deals | ☐ planned | — | 002 |
 | Orders + fulfilment state machine | ☐ planned | — | 003 |
 | Stock reservation under contention | ☐ planned | — | 003 |

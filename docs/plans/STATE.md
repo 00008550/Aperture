@@ -27,6 +27,12 @@ the plan file and in *In flight* above (`—` when no branch is open).
 | 006 | Supplier feed connector | not written |
 | 007 | AI assistant: tool calling, structured output, RAG | not written |
 | 008 | OpenTelemetry, dashboards, load test | not written |
+| 009 | [Raw SQL scope safety: a correct Dapper path, and a gate](009-raw-sql-scope-safety.md) | draft |
+
+**009 is sequenced next, before 002** — the number is a file identifier, not a build order. It closes
+the raw-SQL half of 001's authorization spine (`WhereInScope` covers `IQueryable` only). Measured
+2026-08-30: Dapper is not referenced anywhere and there are zero production raw-SQL call sites, so
+this is prevention while it is cheap rather than a retrofit after 002 lands the first grids.
 
 ## Shipped
 
