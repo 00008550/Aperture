@@ -11,6 +11,14 @@ cd "$(dirname "$0")/.." || exit 1
 
 hr() { printf '\n== %s ==\n' "$1"; }
 
+# Any Map<Something>("route") call, not a fixed list of verbs. The verb list missed
+# MapHealthChecks — two routes were invisible to the gate that exists to prove no route is
+# unpoliced, which is the one blind spot that gate must not have. It will equally miss the
+# next MapHub or MapRazorPages, so the pattern is the shape of the call, not a vocabulary.
+# The endpoint architecture test in Aperture.Api.Tests asserts the same rule against the
+# endpoints the host actually built; this grep is the cheap copy that runs without a build.
+ROUTE_CALL='Map[A-Z][A-Za-z]*\("'
+
 endpoints() {
   hr "ENDPOINTS (route -> policy)"
   local found=0 unpoliced=0
@@ -20,12 +28,18 @@ endpoints() {
     local lineno=${rest%%:*}
     local text=${rest#*:}
     local route
-    route=$(printf '%s' "$text" | grep -oE 'Map(Get|Post|Put|Patch|Delete|Group)\("[^"]*"' | head -1)
+    route=$(printf '%s' "$text" | grep -oE "${ROUTE_CALL}[^\"]*\"" | head -1)
     [ -z "$route" ] && continue
     found=$((found + 1))
-    # the policy may sit on this line or in the chained calls that follow it
+    # The policy may sit on this line or anywhere in the chained calls that follow it, so
+    # scan to the end of the statement rather than a fixed number of lines. A fixed window
+    # reported /api/me as unpoliced purely because its handler lambda was long — a gate that
+    # depends on formatting is a gate people learn to override.
+    local endline
+    endline=$(awk -v s="$lineno" 'NR>=s && /;[[:space:]]*$/ {print NR; exit}' "$file")
+    [ -z "$endline" ] && endline=$((lineno + 6))
     local policy
-    policy=$(sed -n "${lineno},$((lineno + 6))p" "$file" \
+    policy=$(sed -n "${lineno},${endline}p" "$file" \
       | grep -oE 'RequirePermission\("[^"]*"\)|RequireAuthorization\("[^"]*"\)|RequireAuthorization\(\)|AllowAnonymous\(\)' \
       | head -1)
     if [ -z "$policy" ]; then
@@ -33,7 +47,10 @@ endpoints() {
       unpoliced=$((unpoliced + 1))
     fi
     printf '  %-58s %-28s %s:%s\n' "$route" "$policy" "${file#./}" "$lineno"
-  done < <(grep -rn --include=*.cs -E 'Map(Get|Post|Put|Patch|Delete|Group)\("' src 2>/dev/null)
+    # Test sources are excluded: they map deliberately unpoliced routes to prove the
+    # architecture test catches them, and counting those as findings would train everyone to
+    # ignore the gate.
+  done < <(grep -rn --include=*.cs -E "$ROUTE_CALL" src 2>/dev/null | grep -v '\.Tests/')
   printf '\n  %d mapped routes, %d without a policy\n' "$found" "$unpoliced"
   [ "$unpoliced" -gt 0 ] && printf '  ^ every one of these is a finding, now, not later\n'
 }

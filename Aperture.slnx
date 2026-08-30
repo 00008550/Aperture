@@ -1,5 +1,6 @@
 <Solution>
   <Folder Name="/src/">
+    <Project Path="src/Aperture.Api.Tests/Aperture.Api.Tests.csproj" />
     <Project Path="src/Aperture.Api/Aperture.Api.csproj" />
     <Project Path="src/Aperture.Contracts/Aperture.Contracts.csproj" />
     <Project Path="src/Aperture.SharedKernel.Tests/Aperture.SharedKernel.Tests.csproj" />
