@@ -50,6 +50,7 @@ public static class AuthenticationRegistration
                 jwt.Events = new JwtBearerEvents
                 {
                     OnTokenValidated = ResolvePrincipalAsync,
+                    OnAuthenticationFailed = LogTokenRejection,
                 };
             });
 
@@ -61,43 +62,98 @@ public static class AuthenticationRegistration
     /// <c>sub</c> and <c>tenant_id</c> into a real membership, and fails the authentication
     /// when it cannot — so a token naming a tenant the user does not belong to comes back 401,
     /// not 403 against somebody else's data.
+    /// <para>
+    /// It also <b>replaces</b> the principal rather than adding to it. See
+    /// <see cref="BuildPrincipal"/>.
+    /// </para>
     /// </summary>
     private static async Task ResolvePrincipalAsync(TokenValidatedContext context)
     {
+        var logger = context.HttpContext.RequestServices
+            .GetRequiredService<ILoggerFactory>()
+            .CreateLogger(AuthenticationLog.Category);
+
         var claims = context.Principal;
 
         if (claims is null
             || !Guid.TryParse(claims.FindFirstValue(AccessClaimTypes.Subject), out var userGuid)
             || !Guid.TryParse(claims.FindFirstValue(AccessClaimTypes.TenantId), out var tenantGuid))
         {
+            AuthenticationLog.MalformedToken(logger);
             context.Fail("The token does not carry a well-formed subject and tenant.");
             return;
         }
 
         var resolver = context.HttpContext.RequestServices.GetRequiredService<IAccessPrincipalResolver>();
 
-        var principal = await resolver.ResolveAsync(
+        var resolution = await resolver.ResolveAsync(
             new TenantId(tenantGuid),
             new UserId(userGuid),
             context.HttpContext.RequestAborted);
 
-        if (principal is null)
+        if (!resolution.IsGranted || resolution.Principal is not { } principal)
         {
+            AuthenticationLog.PrincipalNotResolved(
+                logger,
+                userGuid,
+                tenantGuid,
+                // Unreachable in practice — a denial always carries a reason — but a null
+                // reason must not silently log as success-shaped noise.
+                resolution.Reason ?? AccessDenialReason.NoActiveMembership);
+
             context.Fail("The token's subject has no active membership in the tenant it names.");
             return;
         }
 
         context.HttpContext.Items[PrincipalItemKey] = principal;
+        context.Principal = BuildPrincipal(principal, context.Scheme.Name);
+    }
 
-        // Permissions become claims once, here, so authorization is a claim check rather than
-        // a database round trip per requirement.
-        var identity = new ClaimsIdentity();
+    /// <summary>
+    /// Builds the request's principal from the <em>resolved</em> access principal and nothing
+    /// else, discarding the identity the token arrived with.
+    /// <para>
+    /// This is a whitelist, not a filter, and the difference is the whole point.
+    /// <see cref="ClaimsPrincipal.HasClaim(string, string)"/> searches every identity on the
+    /// principal, so appending a resolved identity to the token's own left a token-supplied
+    /// <c>perm</c> claim indistinguishable, at the moment of the authorization decision, from a
+    /// permission read out of <c>access.role_permissions</c>. A well-signed token could name its
+    /// own permissions. Stripping <c>perm</c> instead would fix that one claim and leave the
+    /// next one someone decides to trust; constructing the principal from scratch means a claim
+    /// only exists here because this method put it here.
+    /// </para>
+    /// </summary>
+    private static ClaimsPrincipal BuildPrincipal(AccessPrincipal principal, string authenticationScheme)
+    {
+        var identity = new ClaimsIdentity(
+            authenticationType: authenticationScheme,
+            nameType: AccessClaimTypes.Subject,
+            roleType: null);
+
+        identity.AddClaim(new Claim(AccessClaimTypes.Subject, principal.UserId.Value.ToString()));
+        identity.AddClaim(new Claim(AccessClaimTypes.TenantId, principal.TenantId.Value.ToString()));
+
         foreach (var permission in principal.Permissions.Values)
         {
             identity.AddClaim(new Claim(AccessClaimTypes.Permission, permission));
         }
 
-        claims.AddIdentity(identity);
+        return new ClaimsPrincipal(identity);
+    }
+
+    /// <summary>
+    /// JwtBearer logs a validation failure at Information and drops the <c>Fail</c> reason
+    /// entirely, so without this the ordinary token failures are the one deny path with no
+    /// warning-level signal. The exception type only — its message can carry token contents.
+    /// </summary>
+    private static Task LogTokenRejection(AuthenticationFailedContext context)
+    {
+        var logger = context.HttpContext.RequestServices
+            .GetRequiredService<ILoggerFactory>()
+            .CreateLogger(AuthenticationLog.Category);
+
+        AuthenticationLog.TokenRejected(logger, context.Exception.GetType().Name);
+        return Task.CompletedTask;
     }
 
     /// <summary>

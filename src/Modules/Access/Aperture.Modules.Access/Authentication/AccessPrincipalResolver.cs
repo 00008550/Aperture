@@ -18,7 +18,7 @@ namespace Aperture.Modules.Access.Authentication;
 /// </summary>
 internal sealed class AccessPrincipalResolver(AccessDbContext db) : IAccessPrincipalResolver
 {
-    public async Task<AccessPrincipal?> ResolveAsync(
+    public async Task<AccessPrincipalResolution> ResolveAsync(
         TenantId tenantId,
         UserId userId,
         CancellationToken cancellationToken)
@@ -32,7 +32,7 @@ internal sealed class AccessPrincipalResolver(AccessDbContext db) : IAccessPrinc
 
         if (!tenantIsActive)
         {
-            return null;
+            return AccessPrincipalResolution.Denied(AccessDenialReason.TenantInactive);
         }
 
         // The membership is the whole authorization decision for "may this token name this
@@ -46,7 +46,7 @@ internal sealed class AccessPrincipalResolver(AccessDbContext db) : IAccessPrinc
 
         if (membershipId is not { } membership)
         {
-            return null;
+            return AccessPrincipalResolution.Denied(AccessDenialReason.NoActiveMembership);
         }
 
         // Users are global (see Domain/User.cs), so this one is also unfiltered by design.
@@ -58,7 +58,7 @@ internal sealed class AccessPrincipalResolver(AccessDbContext db) : IAccessPrinc
 
         if (identity is null)
         {
-            return null;
+            return AccessPrincipalResolution.Denied(AccessDenialReason.UserInactive);
         }
 
         var permissions = await db.MembershipRoles
@@ -77,7 +77,7 @@ internal sealed class AccessPrincipalResolver(AccessDbContext db) : IAccessPrinc
             .Where(g => g.MembershipId == membership && g.TenantId == tenantId)
             .ToListAsync(cancellationToken);
 
-        return new AccessPrincipal(
+        return AccessPrincipalResolution.Granted(new AccessPrincipal(
             tenantId,
             userId,
             identity.Email,
@@ -85,6 +85,6 @@ internal sealed class AccessPrincipalResolver(AccessDbContext db) : IAccessPrinc
             // Of() drops anything the registry no longer declares, and returns None when that
             // leaves nothing — so a stale grant row cannot outlive its permission.
             PermissionSet.Of(permissions),
-            DataScopeSet.Of(tenantId, grants.Select(g => g.ToDataScope(userId))));
+            DataScopeSet.Of(tenantId, grants.Select(g => g.ToDataScope(userId)))));
     }
 }

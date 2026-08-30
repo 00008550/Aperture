@@ -2,10 +2,11 @@ using System.Text;
 using Aperture.Modules.Access.Domain;
 using Aperture.Modules.Access.Persistence;
 using Aperture.SharedKernel.Multitenancy;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.AspNetCore.Hosting;
+using Microsoft.Extensions.Logging;
 using Microsoft.IdentityModel.JsonWebTokens;
 using Microsoft.IdentityModel.Tokens;
 using Testcontainers.PostgreSql;
@@ -34,6 +35,9 @@ public sealed class ApiFixture : IAsyncLifetime
 
     private WebApplicationFactory<Program>? _factory;
 
+    /// <summary>What the host logged. The deny reasons are only observable here.</summary>
+    public LogCapture Logs { get; } = new();
+
     public WebApplicationFactory<Program> Factory =>
         _factory ?? throw new InvalidOperationException("The fixture has not been initialised.");
 
@@ -57,6 +61,8 @@ public sealed class ApiFixture : IAsyncLifetime
             host.UseSetting("Authentication:Issuer", Issuer);
             host.UseSetting("Authentication:Audience", Audience);
             host.UseSetting("Authentication:SigningKey", SigningKey);
+
+            host.ConfigureLogging(logging => logging.AddProvider(Logs));
         });
 
         // Migrate through the host's own registration, so the test also proves the API
@@ -75,6 +81,8 @@ public sealed class ApiFixture : IAsyncLifetime
         await _container.DisposeAsync();
     }
 
+    public string ConnectionString => _container.GetConnectionString();
+
     public HttpClient CreateClient() => Factory.CreateClient();
 
     /// <summary>
@@ -86,7 +94,8 @@ public sealed class ApiFixture : IAsyncLifetime
         UserId userId,
         string? signingKey = null,
         string? issuer = null,
-        DateTime? expires = null)
+        DateTime? expires = null,
+        IEnumerable<KeyValuePair<string, object>>? extraClaims = null)
     {
         var credentials = new SigningCredentials(
             new SymmetricSecurityKey(Encoding.UTF8.GetBytes(signingKey ?? SigningKey)),
@@ -104,6 +113,13 @@ public sealed class ApiFixture : IAsyncLifetime
                 ["tenant_id"] = tenantId.Value.ToString(),
             },
         };
+
+        // Anything a caller can put in a token. Used to mint the tokens that must NOT work:
+        // the interesting attack is a well-signed token that names its own permissions.
+        foreach (var claim in extraClaims ?? [])
+        {
+            descriptor.Claims[claim.Key] = claim.Value;
+        }
 
         return new JsonWebTokenHandler().CreateToken(descriptor);
     }

@@ -13,10 +13,17 @@ namespace Aperture.Modules.Access.Authentication;
 public interface IAccessPrincipalResolver
 {
     /// <summary>
-    /// The principal, or <see langword="null"/> when the pairing does not resolve — no active
-    /// membership, an inactive user, or an inactive tenant. <b>Null means deny</b>: there is no
-    /// partially-resolved principal, because a caller handed one would have to decide what a
-    /// missing piece meant, and that decision is the bug.
+    /// The principal, or the reason there is none — no active membership, an inactive user, or
+    /// an inactive tenant. There is no partially-resolved principal: a caller handed one would
+    /// have to decide what a missing piece meant, and that decision is the bug.
+    /// <para>
+    /// The reason exists so the API host can log <em>why</em> it refused. It never reaches the
+    /// HTTP response; a 401 that explains itself tells an attacker which half of the guess was
+    /// right.
+    /// </para>
     /// </summary>
-    Task<AccessPrincipal?> ResolveAsync(TenantId tenantId, UserId userId, CancellationToken cancellationToken);
+    Task<AccessPrincipalResolution> ResolveAsync(
+        TenantId tenantId,
+        UserId userId,
+        CancellationToken cancellationToken);
 }
