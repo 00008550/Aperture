@@ -4,12 +4,17 @@ The index for `docs/plans/`. `/ap-cycle` reads this first to work out where the 
 
 ## Active
 
-| Plan | Title | Status | Next portion |
-|---|---|---|---|
-| 001 | Tenancy, identity and the authorization spine | in-review | P5 (after 001-P4 merges) |
+| Plan | Title | Status | In flight | Next portion |
+|---|---|---|---|---|
+| 001 | Tenancy, identity and the authorization spine | in-progress | — | P5 |
 
-Statuses: `draft` → `approved` → `in-progress` → `in-review` → `merged`.
-**Only the user moves a plan from `draft` to `approved`.**
+Statuses describe the **plan**, not a portion: `draft` → `approved` → `in-progress` → `done`.
+A plan is `in-progress` from the moment its first portion is built until its last portion merges;
+it does not move backwards as portions come and go. Portion-level state lives in the checkboxes in
+the plan file and in *In flight* above (`—` when no branch is open).
+
+**Only the user moves a plan from `draft` to `approved`.** `ap-builder` sets `in-progress`;
+`ap-reviewer` sets `done` when the last portion ships.
 
 ## Queue
 
