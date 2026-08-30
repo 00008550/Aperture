@@ -1,6 +1,6 @@
 # 001 — Tenancy, identity and the authorization spine
 
-Status: in-review        <!-- draft → approved → in-progress → in-review → merged -->
+Status: in-progress      <!-- draft → approved → in-progress → done -->
 Roadmap: ARCHITECTURE.md §13 item 001
 Measured: `scripts/measure.sh all`, 2026-08-29, on commit `2232426`
 

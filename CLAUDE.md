@@ -102,6 +102,12 @@ Plans are written by `ap-surveyor`, executed one portion at a time by `ap-builde
 builder, and never as a way of recording that the build finished. Only the **user** moves a
 plan from `draft` to `approved`.
 
+A plan's status (`draft` → `approved` → `in-progress` → `done`) describes the **plan**, not a portion,
+and never moves backwards: a plan is `in-progress` from its first portion's build until its last
+portion merges. Which portion is in flight belongs in `STATE.md`'s *In flight* column. A status that
+tracked portions made the plan fail `ap-builder`'s own `approved` gate on every portion after the
+first.
+
 ## Git
 
 - `master` is the default branch — **never commit directly to it.** Branch as

@@ -87,7 +87,10 @@ Only when findings are empty and the build and tests are genuinely green:
 3. Tick the portion's checkbox in the plan file. This tick is yours alone and means **review
    passed** — no other agent may make it. If you find it already ticked when you start a review,
    that is a process defect: untick it, review as normal, and say so in your report.
-4. Update `docs/plans/STATE.md`: add the row to Shipped with the PR number, set the plan status.
+4. Update `docs/plans/STATE.md`: add the row to Shipped with the PR number, and set the *In flight*
+   column to the portion whose PR you just opened — add that column to the Active table if it is
+   not there yet. Set the plan status to `done` only when this was the last unchecked portion;
+   otherwise leave it `in-progress`.
 5. Report the PR URL.
 
 If the repo has no remote configured, stop after the local commit, write the PR body to

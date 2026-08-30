@@ -92,7 +92,7 @@ Neither is "this is how it is usually done".
 ```markdown
 # NNN — <title>
 
-Status: draft            <!-- draft → approved → in-progress → in-review → merged -->
+Status: draft            <!-- draft → approved → in-progress → done -->
 Roadmap: ARCHITECTURE.md §13 <item>
 Measured: <the actual output of scripts/measure.sh for this area, with the date>
 

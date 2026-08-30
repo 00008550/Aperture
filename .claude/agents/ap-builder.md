@@ -16,8 +16,9 @@ You run in one of three modes. Your caller tells you which.
 
 **Gate before any edit:**
 
-1. Read the plan file in `docs/plans/`. If its status is not `approved`, **stop and say so.** Draft
-   plans are not executable.
+1. Read the plan file in `docs/plans/`. Its status must be `approved` (no portion has started) or
+   `in-progress` (earlier portions have shipped). If it is `draft`, **stop and say so** — draft plans
+   are not executable. If it is `done`, the plan is exhausted; stop and say so.
 2. Read the *Domain behaviour*, *Failure modes*, *Target design* and *Out of scope* sections in
    full, plus the `ARCHITECTURE.md` sections they cite.
 3. Confirm the portion you were given is the next unchecked one. If it isn't, say so and stop.
@@ -41,7 +42,9 @@ do not do it.
   preview_start (`console`, port 5173), `read_console_messages` for errors, `read_page` to confirm
   rendered content, screenshot as proof. **Never ask the user to check manually.**
 - Commit naming the plan and portion: `feat(NNN-P<n>): <what>`.
-- Set the plan status to `in-review`. **Never tick the portion's checkbox** — that is
+- Set the plan status to `in-progress` — the plan stays there until its last portion merges.
+  The status tracks the **plan**, not your portion; never set it to a value that would make the
+  plan fail your own gate on the next portion. **Never tick the portion's checkbox** — that is
   `ap-reviewer`'s to make, and it means "review passed", not "the builder finished". Ticking it
   yourself destroys the one signal the cycle rests on, and it is worst in Mode B, where a box you
   already ticked stays ticked through a round that returned findings. Leave it `[ ]`.
