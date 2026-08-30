@@ -33,26 +33,33 @@ jobs:
       - name: Build
         run: dotnet build Aperture.slnx --configuration Release --no-restore
 
+      # No LogFileName: with a fixed name every test project writes the same file and the
+      # last one wins, so the assertion below would only ever have counted one project.
       - name: Test
         run: >
           dotnet test Aperture.slnx
           --configuration Release
           --no-build
-          --logger "trx;LogFileName=test-results.trx"
+          --logger trx
           --results-directory ./TestResults
 
       # A test run that discovers zero tests must not read as success. This is the
       # 001-P1 review finding turned into a build step.
+      # Sums every project's trx, not just one. grep -o rather than -P, and awk rather than
+      # bc: PCRE mode refuses to run under a non-UTF-8 locale and bc is not installed
+      # everywhere. Neither difference between this runner and a developer machine should
+      # decide whether the build passes.
       - name: Assert tests actually ran
         run: |
           set -euo pipefail
-          total=$(grep -rhoP 'total="\K\d+' TestResults/*.trx | head -1)
-          echo "executed tests: ${total:-0}"
-          if [ "${total:-0}" -lt 1 ]; then
+          files=$(ls TestResults/*.trx 2>/dev/null | wc -l)
+          total=$(grep -ho 'total="[0-9]*"' TestResults/*.trx | grep -o '[0-9]*' | awk '{s+=$1} END{print s+0}')
+          echo "executed tests: ${total:-0} across ${files} result file(s)"
+          if [ "${files}" -lt 1 ] || [ "${total:-0}" -lt 1 ]; then
             echo "::error::dotnet test discovered no tests — a green run here proves nothing"
             exit 1
           fi
-          echo "### ✅ $total backend tests executed" >> "$GITHUB_STEP_SUMMARY"
+          echo "### ✅ $total backend tests executed across $files project(s)" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload test results
         if: always()
