@@ -1,6 +1,6 @@
 # 001 — Tenancy, identity and the authorization spine
 
-Status: in-progress      <!-- draft → approved → in-progress → done -->
+Status: done      <!-- draft → approved → in-progress → done -->
 Roadmap: ARCHITECTURE.md §13 item 001
 Measured: `scripts/measure.sh all`, 2026-08-29, on commit `2232426`
 
@@ -207,12 +207,23 @@ permission for, and shows an explicit empty state for a user with no scopes; ver
 **Tests:** component tests for the gate; a test that a denied route still 403s at the API.
 **Risk:** low.
 
-### [ ] P6 — Audit trail for authorization decisions and mutations
+### [x] P6 — Audit trail for authorization decisions and mutations
 **Touches:** `src/Modules/Access/**`
+**Touches (amended in review, 001-P6):** also `src/Aperture.Api/**` (the auditing authorization
+result handler and the actor-kind marker — a forbidden decision and the request's actor kind are
+only known in the host, not the module) and `src/Aperture.Api.Tests/**` (the host-pipeline
+audit test). The API host is the composition root and already references the Access module, so
+this is not a cross-module leak.
 **Done when:** every deny and every mutation writes an audit row with actor, tenant, permission,
 scope decision and correlation id; the AI assistant's calls are marked as such.
 **Tests:** deny is audited; a mutation is audited; audit rows are tenant-scoped like everything else.
 **Risk:** medium.
+**Reviewed:** no findings. Build clean (warnings-as-errors); 107 tests passing (SharedKernel 29,
+Access 29, Api 49). Deny (both authentication and authorization) and mutation paths audit; the
+tenant is stamped from `ITenantContext` and fails closed when unset; `Record` and its mutation
+commit or roll back together while `RecordAsync` persists in its own transaction; the query-filter
+convention test covers `AuditEvent` by enumeration; `measure.sh endpoints` unchanged. PR body:
+`pr/001-P6.md`.
 
 ## Open questions for the user
 
