@@ -28,7 +28,7 @@ export interface NavigationProps {
 /**
  * The permission gate. It is **convenience, never enforcement**: a user who edits the DOM to
  * re-enable an item gets the same 403 from the API that they would have got anyway
- * (`Aperture.Api.Tests/DeniedRouteTests.cs` asserts exactly that). Nothing here is allowed to
+ * (`Aperture.Api.Tests/ConsoleGatedRouteTests.cs` asserts exactly that). Nothing here is allowed to
  * become the only thing standing between a caller and data.
  */
 export function Navigation({ can, items = NAV_ITEMS }: NavigationProps) {

@@ -139,7 +139,10 @@ public sealed class ApiFixture : IAsyncLifetime
         using var scope = Factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AccessDbContext>();
 
-        var tenant = new Tenant(tenantId, label, $"{label}-{Guid.NewGuid():N}"[..20]);
+        // Slug must stay unique regardless of label length: keep at most 8 chars of the
+        // label as a readable prefix, then append Guid entropy that the [..20] cap cannot slice off.
+        var slugPrefix = label.Length > 8 ? label[..8] : label;
+        var tenant = new Tenant(tenantId, label, $"{slugPrefix}-{Guid.NewGuid():N}"[..20]);
         if (!tenantIsActive)
         {
             Deactivate(tenant);
