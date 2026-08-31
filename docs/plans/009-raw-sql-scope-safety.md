@@ -364,7 +364,7 @@ caller-supplied value other than the validated alias.
 > as the branch these portions revise, not as shippable — do not merge it as-is. The plan's P3
 > checkbox is un-ticked accordingly (it was never merged).
 
-### [ ] P3 — RLS foundation: reader role, policy convention, session context (fail-closed by default)
+### [x] P3 — RLS foundation: reader role, policy convention, session context (fail-closed by default)
 **Touches:** an Access migration provisioning the idempotent least-privilege `aperture_reader` login
 role (`SELECT`-only, not owner); a migration enabling `ROW LEVEL SECURITY` + the `USING` policy on
 the differential-test probe table; `src/Aperture.SharedKernel/Data/ScopeSessionContext.cs` (new —
