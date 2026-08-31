@@ -49,7 +49,7 @@ Every Given/When/Then in the plan's *Edge cases* maps to a named test:
 
 - [ ] Exactly one portion of one plan — no drive-by fixes
 - [ ] Every new endpoint carries an authorization policy
-- [ ] Every raw SQL / Dapper call passes `tenant_id` explicitly
+- [ ] Raw SQL reaches the database only through the sanctioned wrapper — `scripts/measure.sh rawsql` reports 0 production call sites and `RawSqlIsScopedTests` passes (009)
 - [ ] No cross-module coupling — contracts and events only
 - [ ] Migration is additive and deployable alongside the running code
 - [ ] The portion's checkbox is ticked and `docs/plans/STATE.md` is updated

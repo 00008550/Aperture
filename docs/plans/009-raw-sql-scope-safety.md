@@ -1,6 +1,6 @@
 # 009 — Raw SQL scope safety: a correct Dapper path, and a gate that fails without it
 
-Status: draft            <!-- draft → approved → in-progress → done -->
+Status: in-progress      <!-- draft → approved → in-progress → done -->
 Roadmap: ARCHITECTURE.md §13 — not a numbered roadmap item; this is the raw-SQL half of 001's
 authorization spine, split out (see *Why its own plan* below). Sequence it **immediately after 001**
 and **before 002**; the plan number is a file identifier, not a build order.
@@ -245,7 +245,7 @@ scripts/measure.sh             (modified) + `rawsql` mode
 
 ## Portions
 
-### [ ] P1 — The gate, before there is anything to gate
+### [x] P1 — The gate, before there is anything to gate
 **Touches:** `src/Aperture.SharedKernel.Tests/Architecture/RawSqlIsScopedTests.cs` (new),
 `scripts/measure.sh` (new `rawsql` mode), `.github/pull_request_template.md` (point the existing
 raw-SQL checkbox at the gate), `docs/ARCHITECTURE.md` §12 row.

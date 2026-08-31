@@ -135,6 +135,50 @@ tests() {
   printf '  %s spec files under frontend/\n' "$specs"
 }
 
+# Every raw-SQL touchpoint in src/, with file and line, and a count of the ones that are
+# production call sites. The invariant (CLAUDE.md 2) is that raw SQL reaches the database
+# only through the one sanctioned wrapper project; everything else is a finding. This is the
+# cheap grep that runs without a build — RawSqlIsScopedTests asserts the same rule against
+# the source tree, and that architecture test is the version that fails CI. Kept as its own
+# mode (009-P1) so it can be read on its own, mirroring the endpoint/gate split above.
+#
+# Detector: the entry points that bypass EF's global query filter — Dapper, and EF's own
+# FromSqlRaw/FromSqlInterpolated/ExecuteSqlRaw escape hatches, plus a bare NpgsqlConnection.
+RAWSQL_PATTERN='Dapper|NpgsqlConnection|FromSqlRaw|FromSqlInterpolated|ExecuteSqlRaw'
+# The sanctioned home of the Dapper wrapper (009-P3 lands it here). A path rule, not a magic
+# comment: an exemption a developer can paste anywhere is not an exemption, it is a bypass.
+RAWSQL_SANCTIONED='src/Aperture\.SharedKernel/Data/'
+
+rawsql() {
+  hr "RAW SQL (touchpoints -> is it in the sanctioned project?)"
+  local production=0 exempt=0
+  while IFS= read -r hit; do
+    [ -z "$hit" ] && continue
+    local file=${hit%%:*}
+    local rest=${hit#*:}
+    local lineno=${rest%%:*}
+    local label status
+    if printf '%s' "$file" | grep -qE '\.Tests/'; then
+      status='test project — exempt by path'
+      exempt=$((exempt + 1))
+    elif printf '%s' "$file" | grep -qE "$RAWSQL_SANCTIONED"; then
+      status='sanctioned wrapper — allowed'
+      exempt=$((exempt + 1))
+    else
+      status='*** PRODUCTION CALL SITE ***'
+      production=$((production + 1))
+    fi
+    printf '  %-58s %s:%s\n' "$status" "${file#./}" "$lineno"
+  done < <(grep -rnE "$RAWSQL_PATTERN" --include=*.cs src 2>/dev/null | sort)
+  printf '\n  %d production raw-SQL call site(s), %d exempt (test or sanctioned)\n' \
+    "$production" "$exempt"
+  if [ "$production" -gt 0 ]; then
+    printf '  ^ each must move behind ScopedConnection (009) or it is a cross-tenant read waiting to happen\n'
+    return 1
+  fi
+  return 0
+}
+
 # The two invariants worth failing a build over. Both are cheap greps, both encode a
 # rule from CLAUDE.md, and both currently pass trivially because the surfaces they
 # guard do not exist yet — which is the point of adding them before the surfaces do.
@@ -168,7 +212,10 @@ gate() {
     # Matched on Dapper/EF raw-SQL entry points specifically. A bare `ExecuteAsync(`
     # was the first pattern here and it flagged BackgroundService.ExecuteAsync — a gate
     # that cries wolf gets disabled, so it is narrow on purpose.
-  done < <(grep -rn --include=*.cs -E 'FromSql(Raw|Interpolated)?|ExecuteSql(Raw|Interpolated)?|\.Query(Async|First|FirstAsync|Single|SingleAsync|Multiple)?<|Dapper' src 2>/dev/null)
+    # Test projects are exempt by path rule, like GATE 1 and `rawsql` mode: a test file
+    # naming these keywords is a fixture or the detector's own test data, not a production
+    # read. (009-P1 added RawSqlIsScopedTests.cs, full of such fixtures, and tripped this.)
+  done < <(grep -rn --include=*.cs -E 'FromSql(Raw|Interpolated)?|ExecuteSql(Raw|Interpolated)?|\.Query(Async|First|FirstAsync|Single|SingleAsync|Multiple)?<|Dapper' src 2>/dev/null | grep -v '\.Tests/')
   if [ "$leaked" -gt 0 ]; then
     printf '  FAIL: %d raw SQL call(s) with no visible tenant predicate\n' "$leaked"
     failures=$((failures + 1))
@@ -192,8 +239,9 @@ case "${1:-all}" in
   endpoints) endpoints ;;
   gate) gate ;;
   permissions) permissions ;;
+  rawsql) rawsql ;;
   schema) schema ;;
   tests) tests ;;
-  all) endpoints; permissions; schema; tests ;;
-  *) echo "usage: $0 {gate|endpoints|permissions|schema|tests|all}"; exit 2 ;;
+  all) endpoints; permissions; rawsql; schema; tests ;;
+  *) echo "usage: $0 {gate|endpoints|permissions|rawsql|schema|tests|all}"; exit 2 ;;
 esac
