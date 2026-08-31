@@ -32,3 +32,15 @@ h1 { font-size: 19px; margin: 0 0 4px; }
 .mono { font-family: ui-monospace, "Cascadia Mono", monospace; font-size: 12px; }
 .pill { display: inline-block; padding: 1px 8px; border-radius: 999px; border: 1px solid var(--line); margin: 2px 4px 2px 0; font-size: 12px; }
 .ok { color: var(--ok); } .warn { color: var(--warn); }
+nav a[data-denied="true"] { cursor: not-allowed; }
+nav a .lock { color: var(--warn); font-size: 11px; }
+.side button.link { margin-top: 22px; background: none; border: 0; color: var(--muted); padding: 7px 10px; cursor: pointer; font: inherit; }
+.side button.link:hover { color: var(--text); }
+.signin { display: grid; place-items: center; min-height: 100vh; padding: 24px; }
+.signin .card { width: min(560px, 100%); }
+.signin label { display: block; color: var(--muted); font-size: 12px; margin-bottom: 6px; }
+.signin textarea { width: 100%; background: var(--bg); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 9px 10px; resize: vertical; }
+.signin button[type="submit"] { margin-top: 14px; background: var(--accent); color: #08101f; border: 0; border-radius: 6px; padding: 8px 16px; font: inherit; font-weight: 600; cursor: pointer; }
+.signin button[type="submit"]:disabled { opacity: .4; cursor: not-allowed; }
+.empty { border: 1px dashed var(--warn); border-radius: 7px; padding: 10px 12px; }
+.empty .sub { margin: 6px 0 0; }

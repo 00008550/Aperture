@@ -1,15 +1,28 @@
+import { ApiError } from './api';
+import { clearAccessToken, useAccessToken, useSignOutReason } from './auth';
+import { Navigation } from './Navigation';
+import { SessionPanels } from './SessionPanels';
+import { SignIn } from './SignIn';
 import { useSession } from './useSession';
-import { Permissions, type Permission } from './permissions';
 
-const NAV: { label: string; permission: Permission }[] = [
-  { label: 'Accounts', permission: Permissions.AccountsRead },
-  { label: 'Deals', permission: Permissions.DealsRead },
-  { label: 'Orders', permission: Permissions.OrdersRead },
-  { label: 'Administration', permission: Permissions.AdminUsers },
-];
+function describeError(error: unknown): string | undefined {
+  if (error instanceof ApiError) {
+    return `The API answered ${error.status}. The session could not be loaded.`;
+  }
+  return error ? 'The API could not be reached.' : undefined;
+}
 
 export default function App() {
+  const token = useAccessToken();
+  const signOutReason = useSignOutReason();
   const { data, isPending, error, can } = useSession();
+
+  // No token, or a token the API has just refused (useSession clears it): sign-in, not a
+  // half-rendered shell. There is no state in which the console shows navigation without a
+  // session behind it.
+  if (token === null) {
+    return <SignIn {...(signOutReason ? { message: signOutReason } : {})} />;
+  }
 
   return (
     <div className="shell">
@@ -18,76 +31,33 @@ export default function App() {
           Aperture
           <small>order &amp; deal desk</small>
         </div>
-        <nav>
-          <a href="#" aria-current="page">
-            Overview
-          </a>
-          {NAV.map((item) => (
-            // Denied items render disabled rather than vanishing, so the shape of the
-            // product is legible to every role. The server denies regardless.
-            <a key={item.label} href="#" data-denied={!can(item.permission)}>
-              {item.label}
-            </a>
-          ))}
-        </nav>
+
+        <Navigation can={can} />
+
+        <button type="button" className="link" onClick={() => clearAccessToken()}>
+          Sign out
+        </button>
       </aside>
 
       <main>
-        <h1>Overview</h1>
+        <h1 id="overview">Overview</h1>
         <p className="sub">
-          Skeleton shell. The session below comes from <span className="mono">GET /api/me</span>;
-          navigation is gated on the permissions it returns.
+          Session from <span className="mono">GET /api/me</span>. Navigation is disabled where the
+          permission is missing; the API denies those calls regardless.
         </p>
 
         {isPending && <p className="sub">Loading session…</p>}
 
-        {error && (
+        {error && !isPending && (
           <div className="card">
             <h2>Session</h2>
-            <p className="warn">
-              Not signed in — <span className="mono">/api/me</span> is unavailable.
-            </p>
-            <p className="sub">
-              Authentication lands in 001-P3. Until then the API answers this route only for an
-              authenticated principal, and the console fails closed: no session, no navigation.
+            <p className="warn" role="alert">
+              {describeError(error)}
             </p>
           </div>
         )}
 
-        {data && (
-          <div className="grid">
-            <div className="card">
-              <h2>Tenant</h2>
-              <div>{data.tenantName}</div>
-              <div className="mono sub">{data.tenantId}</div>
-            </div>
-            <div className="card">
-              <h2>User</h2>
-              <div>{data.displayName}</div>
-              <div className="mono sub">{data.userId}</div>
-            </div>
-            <div className="card">
-              <h2>Permissions</h2>
-              {data.permissions.map((p) => (
-                <span key={p} className="pill mono">
-                  {p}
-                </span>
-              ))}
-            </div>
-            <div className="card">
-              <h2>Data scopes</h2>
-              {data.scopes.length === 0 ? (
-                <span className="warn">none — fail closed, nothing is visible</span>
-              ) : (
-                data.scopes.map((s) => (
-                  <span key={s} className="pill mono">
-                    {s}
-                  </span>
-                ))
-              )}
-            </div>
-          </div>
-        )}
+        {data && <SessionPanels session={data} />}
       </main>
     </div>
   );
