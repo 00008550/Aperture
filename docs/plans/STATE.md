@@ -6,7 +6,7 @@ The index for `docs/plans/`. `/ap-cycle` reads this first to work out where the 
 
 | Plan | Title | Status | In flight | Next portion |
 |---|---|---|---|---|
-| 001 | Tenancy, identity and the authorization spine | in-progress | P5 | P6 |
+| 001 | Tenancy, identity and the authorization spine | in-progress | P6 | — |
 
 Statuses describe the **plan**, not a portion: `draft` → `approved` → `in-progress` → `done`.
 A plan is `in-progress` from the moment its first portion is built until its last portion merges;

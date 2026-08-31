@@ -32,6 +32,8 @@ public sealed class AccessDbContext(DbContextOptions<AccessDbContext> options, I
 
     public DbSet<Region> Regions => Set<Region>();
 
+    public DbSet<AuditEvent> AuditEvents => Set<AuditEvent>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.HasDefaultSchema(Schema);

@@ -1,7 +1,9 @@
+using Aperture.Modules.Access.Auditing;
 using Aperture.Modules.Access.Authentication;
 using Aperture.Modules.Access.Persistence;
 using Aperture.SharedKernel.Multitenancy;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace Aperture.Modules.Access;
 
@@ -20,6 +22,14 @@ public static class AccessModule
         // Scoped: it holds the request's DbContext. The resolver is the only way anything
         // outside this assembly learns what a user holds (001-P3).
         services.AddScoped<IAccessPrincipalResolver, AccessPrincipalResolver>();
+
+        // Scoped: it writes through the request's DbContext, so a mutation and its audit row
+        // share one unit of work (001-P6).
+        services.AddScoped<IAuditTrail, AuditTrail>();
+
+        // The clock the audit trail stamps rows with. TryAdd so a host that already registered a
+        // TimeProvider — a test freezing time, say — keeps its own.
+        services.TryAddSingleton(TimeProvider.System);
 
         return services;
     }

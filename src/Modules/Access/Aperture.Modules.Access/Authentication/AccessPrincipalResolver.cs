@@ -1,3 +1,6 @@
+using System.Diagnostics;
+using Aperture.Modules.Access.Auditing;
+using Aperture.Modules.Access.Domain;
 using Aperture.Modules.Access.Persistence;
 using Aperture.SharedKernel.Authorization;
 using Aperture.SharedKernel.Multitenancy;
@@ -16,7 +19,7 @@ namespace Aperture.Modules.Access.Authentication;
 /// where the tenant is decided is exactly the place not to rely on ambient state.
 /// </para>
 /// </summary>
-internal sealed class AccessPrincipalResolver(AccessDbContext db) : IAccessPrincipalResolver
+internal sealed class AccessPrincipalResolver(AccessDbContext db, IAuditTrail audit) : IAccessPrincipalResolver
 {
     public async Task<AccessPrincipalResolution> ResolveAsync(
         TenantId tenantId,
@@ -32,7 +35,7 @@ internal sealed class AccessPrincipalResolver(AccessDbContext db) : IAccessPrinc
 
         if (!tenantIsActive)
         {
-            return AccessPrincipalResolution.Denied(AccessDenialReason.TenantInactive);
+            return await DenyAsync(tenantId, userId, AccessDenialReason.TenantInactive, cancellationToken);
         }
 
         // The membership is the whole authorization decision for "may this token name this
@@ -46,7 +49,7 @@ internal sealed class AccessPrincipalResolver(AccessDbContext db) : IAccessPrinc
 
         if (membershipId is not { } membership)
         {
-            return AccessPrincipalResolution.Denied(AccessDenialReason.NoActiveMembership);
+            return await DenyAsync(tenantId, userId, AccessDenialReason.NoActiveMembership, cancellationToken);
         }
 
         // Users are global (see Domain/User.cs), so this one is also unfiltered by design.
@@ -58,7 +61,7 @@ internal sealed class AccessPrincipalResolver(AccessDbContext db) : IAccessPrinc
 
         if (identity is null)
         {
-            return AccessPrincipalResolution.Denied(AccessDenialReason.UserInactive);
+            return await DenyAsync(tenantId, userId, AccessDenialReason.UserInactive, cancellationToken);
         }
 
         var permissions = await db.MembershipRoles
@@ -86,5 +89,36 @@ internal sealed class AccessPrincipalResolver(AccessDbContext db) : IAccessPrinc
             // leaves nothing — so a stale grant row cannot outlive its permission.
             PermissionSet.Of(permissions),
             DataScopeSet.Of(tenantId, grants.Select(g => g.ToDataScope(userId)))));
+    }
+
+    /// <summary>
+    /// Records the denial to the tenant's audit trail, then returns it.
+    /// <para>
+    /// Only reachable behind a validly-signed token — the JWT layer has already checked
+    /// signature, issuer, audience and lifetime — so this cannot be flooded by anonymous
+    /// garbage into a write per request. That is exactly why the earlier, cheaper token
+    /// rejections stay log-only (see <c>AuthenticationLog</c>) and these three do not.
+    /// </para>
+    /// <para>
+    /// The tenant stamped on the row is the one being denied, established by the ambient scope
+    /// this method runs inside. An authentication denial has no permission and no scope — it
+    /// fails before either is reached — so those stay null and the reason carries the why.
+    /// </para>
+    /// </summary>
+    private async Task<AccessPrincipalResolution> DenyAsync(
+        TenantId tenantId,
+        UserId userId,
+        AccessDenialReason reason,
+        CancellationToken cancellationToken)
+    {
+        await audit.RecordAsync(
+            new AuditEntry(AuditCategory.AuthenticationDenied, ActorKind.Human, userId)
+            {
+                Reason = reason.ToString(),
+                CorrelationId = Activity.Current?.Id,
+            },
+            cancellationToken);
+
+        return AccessPrincipalResolution.Denied(reason);
     }
 }

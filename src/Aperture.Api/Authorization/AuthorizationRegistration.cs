@@ -1,5 +1,6 @@
 using Aperture.SharedKernel.Authorization;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Authorization.Policy;
 
 namespace Aperture.Api.Authorization;
 
@@ -10,6 +11,10 @@ public static class AuthorizationRegistration
     {
         services.AddSingleton<IAuthorizationPolicyProvider, PermissionPolicyProvider>();
         services.AddSingleton<IAuthorizationHandler, PermissionAuthorizationHandler>();
+
+        // Replace the framework's result handler so every forbidden decision is audited once,
+        // with the permission that was refused, before the 403 is written (001-P6).
+        services.AddSingleton<IAuthorizationMiddlewareResultHandler, AuditingAuthorizationResultHandler>();
 
         services.AddAuthorizationBuilder()
             // Belt and braces with the architecture test: the test fails the build when a route
