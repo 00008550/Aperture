@@ -245,7 +245,7 @@ scripts/measure.sh             (modified) + `rawsql` mode
 
 ## Portions
 
-### [ ] P1 — The gate, before there is anything to gate
+### [x] P1 — The gate, before there is anything to gate
 **Touches:** `src/Aperture.SharedKernel.Tests/Architecture/RawSqlIsScopedTests.cs` (new),
 `scripts/measure.sh` (new `rawsql` mode), `.github/pull_request_template.md` (point the existing
 raw-SQL checkbox at the gate), `docs/ARCHITECTURE.md` §12 row.

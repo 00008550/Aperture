@@ -7,7 +7,7 @@ The index for `docs/plans/`. `/ap-cycle` reads this first to work out where the 
 | Plan | Title | Status | In flight | Next portion |
 |---|---|---|---|---|
 | 001 | Tenancy, identity and the authorization spine | done | — | — |
-| 009 | [Raw SQL scope safety: a correct Dapper path, and a gate](009-raw-sql-scope-safety.md) | in-progress | P1 | P1 |
+| 009 | [Raw SQL scope safety: a correct Dapper path, and a gate](009-raw-sql-scope-safety.md) | in-progress | P1 | P2 |
 
 Statuses describe the **plan**, not a portion: `draft` → `approved` → `in-progress` → `done`.
 A plan is `in-progress` from the moment its first portion is built until its last portion merges;
@@ -44,3 +44,4 @@ this is prevention while it is cheap rather than a retrofit after 002 lands the 
 | 001-P4 | Scope → SQL predicate translation | build clean, 84 tests passing (23 against real PostgreSQL, asserting the generated WHERE clause); no review findings | [#17](https://github.com/00008550/Aperture/pull/17) — body in [`pr/001-P4.md`](pr/001-P4.md) |
 | 001-P5 | Console sign-in, session, permission-gated navigation | build clean; frontend 11/11; .NET 97 passing (SharedKernel 29, Access 23, Api 45 incl. `ConsoleGatedRouteTests` 13 against real PostgreSQL); 1 review finding (test-harness slug collision) fixed and re-run green | see [`pr/001-P5.md`](pr/001-P5.md) |
 | 001-P6 | Audit trail for authorization decisions and mutations | build clean (warnings-as-errors); 107 tests passing (SharedKernel 29, Access 29, Api 49; audit deny/mutation/tenant-isolation/fail-closed against real PostgreSQL and the real host pipeline); `measure.sh endpoints` unchanged (3 routes, 0 unpoliced); no review findings | body in [`pr/001-P6.md`](pr/001-P6.md) |
+| 009-P1 | The gate, before there is anything to gate | build clean; SharedKernel 41/41; `measure.sh rawsql` 0 production call sites (exit 0); planted `NpgsqlConnection` + Dapper `PackageReference` both caught then reverted; `measure.sh endpoints` unchanged (3 routes, 0 unpoliced); no review findings | PR_URL_PLACEHOLDER |
