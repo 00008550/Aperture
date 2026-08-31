@@ -263,7 +263,7 @@ identically to one that finds nothing because the code is clean, and that failur
 **Risk:** low. No production code. Deliberately first: the constraint must exist before the thing it
 constrains, or P3 lands the Dapper reference into a repository with nothing watching it.
 
-### [ ] P2 — `DataScopeSet` → SQL fragment + parameters
+### [x] P2 — `DataScopeSet` → SQL fragment + parameters
 **Touches:** `src/Aperture.SharedKernel/Authorization/DataScope.cs` (add abstract
 `ToSqlFragment`), `ScopeSql.cs`, `ScopeFragment.cs`, `ScopeColumns.cs` (all new),
 `src/Aperture.SharedKernel.Tests/Authorization/ScopeSqlTests.cs` (new).
