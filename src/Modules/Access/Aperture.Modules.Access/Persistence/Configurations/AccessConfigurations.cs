@@ -178,3 +178,28 @@ internal sealed class RegionConfiguration : IEntityTypeConfiguration<Region>
         builder.HasIndex(r => new { r.TenantId, r.Name }).IsUnique();
     }
 }
+
+internal sealed class AuditEventConfiguration : IEntityTypeConfiguration<AuditEvent>
+{
+    public void Configure(EntityTypeBuilder<AuditEvent> builder)
+    {
+        builder.ToTable("audit_events", AccessDbContext.Schema);
+        builder.HasKey(e => e.Id);
+        builder.Property(e => e.Id).HasColumnName("id");
+        builder.Property(e => e.TenantId).HasColumnName("tenant_id").HasConversion(TypedIdConverters.Tenant);
+        builder.Property(e => e.OccurredAt).HasColumnName("occurred_at");
+        builder.Property(e => e.Category).HasColumnName("category").HasConversion<int>();
+        builder.Property(e => e.ActorKind).HasColumnName("actor_kind").HasConversion<int>();
+        builder.Property(e => e.ActorUserId).HasColumnName("actor_user_id").HasConversion(TypedIdConverters.User);
+        builder.Property(e => e.Permission).HasColumnName("permission").HasMaxLength(100);
+        builder.Property(e => e.ScopeDecision).HasColumnName("scope_decision").HasMaxLength(400);
+        builder.Property(e => e.Reason).HasColumnName("reason").HasMaxLength(200);
+        builder.Property(e => e.Action).HasColumnName("action").HasMaxLength(400);
+        builder.Property(e => e.CorrelationId).HasColumnName("correlation_id").HasMaxLength(200);
+
+        // Reading the trail is "everything in this tenant, newest first, sometimes for one
+        // actor". The index covers the common filter and the ordering it is almost always read by.
+        builder.HasIndex(e => new { e.TenantId, e.OccurredAt });
+        builder.HasIndex(e => new { e.TenantId, e.ActorUserId });
+    }
+}
