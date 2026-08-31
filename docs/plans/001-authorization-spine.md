@@ -200,7 +200,7 @@ result count — a result count passes just as well for an in-memory filter, whi
 union and no scope reaches past it, and the predicate binds concrete properties so nothing
 client-evaluates. PR body: `pr/001-P4.md`.
 
-### [ ] P5 — Console: sign-in, session, permission-gated navigation
+### [x] P5 — Console: sign-in, session, permission-gated navigation
 **Touches:** `frontend/console/**`
 **Done when:** the console signs in, renders the session, disables navigation the user lacks
 permission for, and shows an explicit empty state for a user with no scopes; verified in the browser.
