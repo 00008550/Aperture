@@ -212,7 +212,10 @@ gate() {
     # Matched on Dapper/EF raw-SQL entry points specifically. A bare `ExecuteAsync(`
     # was the first pattern here and it flagged BackgroundService.ExecuteAsync — a gate
     # that cries wolf gets disabled, so it is narrow on purpose.
-  done < <(grep -rn --include=*.cs -E 'FromSql(Raw|Interpolated)?|ExecuteSql(Raw|Interpolated)?|\.Query(Async|First|FirstAsync|Single|SingleAsync|Multiple)?<|Dapper' src 2>/dev/null)
+    # Test projects are exempt by path rule, like GATE 1 and `rawsql` mode: a test file
+    # naming these keywords is a fixture or the detector's own test data, not a production
+    # read. (009-P1 added RawSqlIsScopedTests.cs, full of such fixtures, and tripped this.)
+  done < <(grep -rn --include=*.cs -E 'FromSql(Raw|Interpolated)?|ExecuteSql(Raw|Interpolated)?|\.Query(Async|First|FirstAsync|Single|SingleAsync|Multiple)?<|Dapper' src 2>/dev/null | grep -v '\.Tests/')
   if [ "$leaked" -gt 0 ]; then
     printf '  FAIL: %d raw SQL call(s) with no visible tenant predicate\n' "$leaked"
     failures=$((failures + 1))
