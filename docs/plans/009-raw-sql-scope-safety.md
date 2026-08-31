@@ -278,7 +278,7 @@ fragment, which is the same trap 001-P4's plan called out.
 **Risk:** medium — string-built SQL. Mitigated by 7 and 9, and by the fragment never containing a
 caller-supplied value other than the validated alias.
 
-### [ ] P3 — `ScopedConnection`: the only way to reach Dapper
+### [x] P3 — `ScopedConnection`: the only way to reach Dapper
 **Touches:** `Directory.Packages.props` (one `PackageVersion`, Data group),
 `src/Aperture.SharedKernel/Aperture.SharedKernel.csproj`,
 `src/Aperture.SharedKernel/Data/ScopedConnection.cs` (new),
