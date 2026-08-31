@@ -6,7 +6,8 @@ The index for `docs/plans/`. `/ap-cycle` reads this first to work out where the 
 
 | Plan | Title | Status | In flight | Next portion |
 |---|---|---|---|---|
-| 001 | Tenancy, identity and the authorization spine | done | P6 | — |
+| 001 | Tenancy, identity and the authorization spine | done | — | — |
+| 009 | [Raw SQL scope safety: a correct Dapper path, and a gate](009-raw-sql-scope-safety.md) | in-progress | P1 | P1 |
 
 Statuses describe the **plan**, not a portion: `draft` → `approved` → `in-progress` → `done`.
 A plan is `in-progress` from the moment its first portion is built until its last portion merges;
@@ -27,7 +28,6 @@ the plan file and in *In flight* above (`—` when no branch is open).
 | 006 | Supplier feed connector | not written |
 | 007 | AI assistant: tool calling, structured output, RAG | not written |
 | 008 | OpenTelemetry, dashboards, load test | not written |
-| 009 | [Raw SQL scope safety: a correct Dapper path, and a gate](009-raw-sql-scope-safety.md) | draft |
 
 **009 is sequenced next, before 002** — the number is a file identifier, not a build order. It closes
 the raw-SQL half of 001's authorization spine (`WhereInScope` covers `IQueryable` only). Measured

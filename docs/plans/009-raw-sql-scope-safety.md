@@ -1,6 +1,6 @@
 # 009 — Raw SQL scope safety: a correct Dapper path, and a gate that fails without it
 
-Status: draft            <!-- draft → approved → in-progress → done -->
+Status: in-progress      <!-- draft → approved → in-progress → done -->
 Roadmap: ARCHITECTURE.md §13 — not a numbered roadmap item; this is the raw-SQL half of 001's
 authorization spine, split out (see *Why its own plan* below). Sequence it **immediately after 001**
 and **before 002**; the plan number is a file identifier, not a build order.
