@@ -45,15 +45,18 @@ being correct, so the filter is made structural.
   from a header or a query parameter — a client cannot name its own tenant.
 - Every module `DbContext` applies `HasQueryFilter(e => e.TenantId == _tenant.TenantId)` to every
   tenant-owned entity. Forgetting it is caught by a convention test that enumerates entity types.
-- **Dapper and raw SQL do not inherit the filter.** Every raw statement passes `tenant_id`
-  explicitly, and the reviewer checks each one by hand. This is the acknowledged sharp edge of the
-  design.
+- **Dapper and raw SQL do not inherit the EF filter — RLS supplies it instead.** Raw reads go
+  through `ScopedConnection` as the reader role, and row-security policies enforce tenant + scope
+  at the DBMS regardless of how the query is written (009).
 - Background work has no HTTP principal, so a job carries its tenant explicitly and
   `ITenantContext` throws when read outside an established scope. **No ambient default, ever** —
   a default tenant is how cross-tenant writes happen.
-- Postgres RLS is a **deferred** second belt: valuable, but it needs a connection-level session
-  variable per request and it complicates pooling. The trigger for adopting it is the first
-  external-facing tenant, or the first tenant-isolation incident, whichever comes first.
+- Postgres RLS is the **enforcement belt for the raw-SQL read path** (009): a dedicated
+  least-privilege reader role is subject to row-security policies that re-assert tenant + scope
+  from per-request session context, so an unscoped raw read cannot be expressed and an
+  unconfigured connection returns nothing. It is scoped to that reader role — the owner role EF
+  uses is unaffected (FORCE is off). Broader RLS (all readers) remains deferred to the first
+  external DB consumer.
 
 ## §3 Authorization: RBAC for verbs, ABAC for rows
 
@@ -96,7 +99,9 @@ was never selected cannot leak through a serialization change.
   loaded and saved whole.
 - **Dapper** owns list and report queries. Grids need shaped, paged, joined projections; expressing
   those through the ORM produces either a slow query or an unreadable one. The knowledge that
-  matters here is the SQL, and it is written as SQL.
+  matters here is the SQL, and it is written as SQL. Dapper is reached only through
+  `ScopedConnection` (referenced by exactly one project; an architecture test enforces it), which
+  runs as an RLS-bound reader role — the correct path is the only path (009).
 - **Migrations** are EF-generated then hand-reviewed, and follow **expand → backfill → contract**:
   a deploy is never allowed to require code and schema to switch at the same instant. A destructive
   step ships at least one release after the code that stopped using the column.
@@ -225,9 +230,9 @@ every survey and corrects it in place. A `✅` that no measurement supports is a
 | Permission policy provider | ✅ built | `Aperture.Api/Authorization` | 32 tests, `Aperture.Api.Tests` (001-P3) |
 | Access module: tenants, users, roles, scopes | ✅ built | `src/Modules/Access` — 9 tables in the `access` schema | 15 tests against real PostgreSQL (001-P2) |
 | Authentication (JWT) + `GET /api/me` | ✅ built | `Aperture.Api/Authentication`, `Modules/Access/Authentication` | 32 tests, `Aperture.Api.Tests` (001-P3) |
-| Scope → SQL predicate (EF / `IQueryable` only) | ◐ on branch, unmerged | `Aperture.SharedKernel/Authorization/ScopeQuerying.cs` — branch `feat/001-P4-scope-sql-predicate`, PR [#17](https://github.com/00008550/Aperture/pull/17) | 84 tests on branch, 23 asserting generated SQL against real PostgreSQL (001-P4). **Not on `master`** — do not read this row as shipped |
-| Scope → SQL predicate for raw SQL / Dapper | ◐ gate only (009-P1) | `Aperture.SharedKernel.Tests/Architecture/RawSqlIsScopedTests.cs`, `scripts/measure.sh rawsql` | The **negative half** is built: any raw-SQL entry point outside the sanctioned wrapper fails the build, and `measure.sh rawsql` reports 0 production call sites. The **positive half** — the fragment builder and `ScopedConnection` — is 009-P2/P3, still planned; `WhereInScope` covers `IQueryable` only |
-| Dapper (as a dependency) | ☐ not present | — | measured 2026-08-30: no `PackageVersion`/`PackageReference` for Dapper anywhere, and zero raw-SQL call sites in `src/` outside test fixtures. §4's "Dapper owns list and report queries" is a design intent, not a description of the code |
+| Scope → SQL predicate (EF / `IQueryable` only) | ✅ built | `Aperture.SharedKernel/Authorization/ScopeQuerying.cs` — on `master`, PR [#17](https://github.com/00008550/Aperture/pull/17) merged 2026-08-30 (001-P4) | 23 tests assert generated SQL against real PostgreSQL |
+| Scope → SQL predicate for raw SQL / Dapper | ◐ gate + fragment (009-P1/P2); enforcement redesigned to RLS (009-P3–P5, planned) | `Aperture.SharedKernel.Tests/Architecture/RawSqlIsScopedTests.cs`, `scripts/measure.sh rawsql`, `Authorization/ScopeSql.cs` | **Negative half built:** any raw-SQL entry point outside the sanctioned wrapper fails the build; `measure.sh rawsql` reports 0 production call sites. **`DataScopeSet`→fragment built** (009-P2, on `master`). **Enforcement:** the P3 `ScopedConnection` placeholder mechanism had a residual fail-open (a caller could `OR`/comment the fragment out); superseded 2026-09-01 by **Postgres RLS on a dedicated reader role** (009-P3–P5, planned). PR #24 held, not merged |
+| Dapper (as a dependency) | ☐ not present | — | measured 2026-09-01: no `PackageVersion`/`PackageReference` for Dapper on `master`, zero raw-SQL call sites in `src/` outside test fixtures. Lands with 009-P4. §4's "Dapper owns list and report queries" is design intent, not a description of the code yet |
 | Sales: accounts, contacts, deals | ☐ planned | — | 002 |
 | Orders + fulfilment state machine | ☐ planned | — | 003 |
 | Stock reservation under contention | ☐ planned | — | 003 |

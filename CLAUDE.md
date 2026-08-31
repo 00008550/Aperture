@@ -44,7 +44,9 @@ A `✅` in the capability matrix means nothing until `scripts/measure.sh` agrees
    cross-schema query, a project reference into another module's internals, or a shared entity type.
 2. **Multi-tenancy is not optional.** Every tenant-owned table carries `tenant_id`. Every query goes
    through the module's `DbContext`, which applies the tenant filter as a global query filter.
-   Raw SQL (Dapper) must pass `tenant_id` explicitly — there is no ambient safety net there.
+   Raw SQL reaches the database only through `ScopedConnection`, as an RLS-bound reader role that
+   requires a `DataScopeSet`; row-security policies enforce tenant + scope at the DBMS. Referencing
+   Dapper or `NpgsqlConnection` anywhere else in `src/` fails the build.
 3. **Fail closed.** An unresolved permission, an empty scope set, or a missing tenant context denies.
    Never `if (scopes.Count == 0) return everything;` — that pattern is the single most expensive bug
    class this design exists to prevent.

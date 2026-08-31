@@ -7,7 +7,7 @@ The index for `docs/plans/`. `/ap-cycle` reads this first to work out where the 
 | Plan | Title | Status | In flight | Next portion |
 |---|---|---|---|---|
 | 001 | Tenancy, identity and the authorization spine | done | — | — |
-| 009 | [Raw SQL scope safety: a correct Dapper path, and a gate](009-raw-sql-scope-safety.md) | in-progress | P2 | P3 |
+| 009 | [Raw SQL scope safety: a correct Dapper path, and a gate](009-raw-sql-scope-safety.md) | in-progress | P3 (RLS foundation — revised 2026-09-01) | P4 |
 
 Statuses describe the **plan**, not a portion: `draft` → `approved` → `in-progress` → `done`.
 A plan is `in-progress` from the moment its first portion is built until its last portion merges;
@@ -16,6 +16,12 @@ the plan file and in *In flight* above (`—` when no branch is open).
 
 **Only the user moves a plan from `draft` to `approved`.** `ap-builder` sets `in-progress`;
 `ap-reviewer` sets `done` when the last portion ships.
+
+**009-P3 correction (2026-09-01):** an earlier edit listed 009-P3 (`ScopedConnection`, PR #24) in
+*Shipped*. It was never merged — `master` has no `src/Aperture.SharedKernel/Data/` and no Dapper
+package, and PR #24 is still `OPEN`. `ap-reviewer` surfaced a residual fail-open in its placeholder
+mechanism, so PR #24 is **held and being superseded** by a revised P3–P5 (Postgres RLS). The row was
+removed from *Shipped*; do **not** merge PR #24 as-is. See the plan's *Revision 2026-09-01* section.
 
 ## Queue
 
