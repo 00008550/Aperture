@@ -94,6 +94,27 @@ public sealed class RawSqlIsScopedTests
             + "ungated path to raw SQL:\n  " + string.Join("\n  ", offenders));
     }
 
+    /// <summary>
+    /// Tightened by 009-P3: not merely "no one else references Dapper" but "<b>exactly one</b>
+    /// project does, and it is the sanctioned wrapper". The negation cannot distinguish a repo where
+    /// Dapper is correctly confined from one where it was never added at all — once the package
+    /// lands (P3), the single-door guarantee is only real if precisely one door exists.
+    /// </summary>
+    [Fact]
+    public void Exactly_one_project_references_the_Dapper_package_and_it_is_the_sanctioned_one()
+    {
+        var referencing = EnumerateSource("*.csproj")
+            .Select(RelativeToRepo)
+            .Where(relative => DapperPackageReference.IsMatch(File.ReadAllText(RepoAbsolute(relative))))
+            .OrderBy(relative => relative, StringComparer.Ordinal)
+            .ToList();
+
+        Assert.True(
+            referencing is ["src/Aperture.SharedKernel/Aperture.SharedKernel.csproj"],
+            "Dapper must be referenced by exactly the sanctioned wrapper project and nothing else; "
+            + "found: [" + string.Join(", ", referencing) + "]");
+    }
+
     // --- Detector self-verification -------------------------------------------------------------
     // A scanner that finds nothing because its regex is broken passes identically to one that
     // finds nothing because the code is clean, and that failure is invisible. So the detector is

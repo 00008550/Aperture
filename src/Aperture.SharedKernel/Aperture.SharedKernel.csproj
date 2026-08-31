@@ -6,4 +6,11 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
+  <!-- Dapper is referenced by exactly this project (009-P3). RawSqlIsScopedTests proves no other
+       project may add it, so ScopedConnection is structurally the only door to raw SQL. -->
+  <ItemGroup>
+    <PackageReference Include="Dapper" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+  </ItemGroup>
+
 </Project>
