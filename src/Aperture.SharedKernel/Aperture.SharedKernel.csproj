@@ -6,4 +6,12 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
+  <!-- The one and only place Dapper and Npgsql are referenced. Every other project physically
+       cannot reach connection.QueryAsync; RawSqlIsScopedTests proves it (009-P1/P4). -->
+  <ItemGroup>
+    <PackageReference Include="Dapper" />
+    <PackageReference Include="Npgsql" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+  </ItemGroup>
+
 </Project>

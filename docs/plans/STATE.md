@@ -7,7 +7,7 @@ The index for `docs/plans/`. `/ap-cycle` reads this first to work out where the 
 | Plan | Title | Status | In flight | Next portion |
 |---|---|---|---|---|
 | 001 | Tenancy, identity and the authorization spine | done | — | — |
-| 009 | [Raw SQL scope safety: a correct Dapper path, and a gate](009-raw-sql-scope-safety.md) | in-progress | P3 (RLS foundation — revised 2026-09-01) | P4 |
+| 009 | [Raw SQL scope safety: a correct Dapper path, and a gate](009-raw-sql-scope-safety.md) | in-progress | P4 (`ScopedConnection` revised — the only door) | P5 |
 
 Statuses describe the **plan**, not a portion: `draft` → `approved` → `in-progress` → `done`.
 A plan is `in-progress` from the moment its first portion is built until its last portion merges;

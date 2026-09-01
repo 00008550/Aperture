@@ -215,7 +215,12 @@ gate() {
     # Test projects are exempt by path rule, like GATE 1 and `rawsql` mode: a test file
     # naming these keywords is a fixture or the detector's own test data, not a production
     # read. (009-P1 added RawSqlIsScopedTests.cs, full of such fixtures, and tripped this.)
-  done < <(grep -rn --include=*.cs -E 'FromSql(Raw|Interpolated)?|ExecuteSql(Raw|Interpolated)?|\.Query(Async|First|FirstAsync|Single|SingleAsync|Multiple)?<|Dapper' src 2>/dev/null | grep -v '\.Tests/')
+    # The sanctioned wrapper (009-P4) is exempt by the same path rule: it does not carry a
+    # `tenant_id` WHERE predicate at all — it enforces tenant + scope structurally via the
+    # RLS reader role and per-read session context, proven by ScopedConnectionRlsTests, not
+    # by a nearby literal. That is the whole point of the wrapper; grepping it for "tenant"
+    # would demand the fail-open string composition the wrapper exists to remove.
+  done < <(grep -rn --include=*.cs -E 'FromSql(Raw|Interpolated)?|ExecuteSql(Raw|Interpolated)?|\.Query(Async|First|FirstAsync|Single|SingleAsync|Multiple)?<|Dapper' src 2>/dev/null | grep -v '\.Tests/' | grep -vE "$RAWSQL_SANCTIONED")
   if [ "$leaked" -gt 0 ]; then
     printf '  FAIL: %d raw SQL call(s) with no visible tenant predicate\n' "$leaked"
     failures=$((failures + 1))
