@@ -8,6 +8,7 @@ The index for `docs/plans/`. `/ap-cycle` reads this first to work out where the 
 |---|---|---|---|---|
 | 001 | Tenancy, identity and the authorization spine | done | — | — |
 | 009 | [Raw SQL scope safety: a correct Dapper path, and a gate](009-raw-sql-scope-safety.md) | done | — | — |
+| 002 | [Sales: accounts, contacts, deals + deal state machine](002-sales-accounts-contacts-deals.md) | in-progress | P1 | P2 |
 
 Statuses describe the **plan**, not a portion: `draft` → `approved` → `in-progress` → `done`.
 A plan is `in-progress` from the moment its first portion is built until its last portion merges;
@@ -27,7 +28,6 @@ removed from *Shipped*; do **not** merge PR #24 as-is. See the plan's *Revision 
 
 | Plan | Title | Status |
 |---|---|---|
-| 002 | Sales: accounts, contacts, deals + deal state machine | not written |
 | 003 | Orders, fulfilment, stock reservation, idempotency | not written |
 | 004 | Outbox, worker, dead-letter handling | not written |
 | 005 | Comms timeline + SignalR | not written |

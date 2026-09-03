@@ -12,4 +12,8 @@
     <Project Path="src/Modules/Access/Aperture.Modules.Access.Tests/Aperture.Modules.Access.Tests.csproj" />
     <Project Path="src/Modules/Access/Aperture.Modules.Access/Aperture.Modules.Access.csproj" />
   </Folder>
+  <Folder Name="/src/Modules/Sales/">
+    <Project Path="src/Modules/Sales/Aperture.Modules.Sales.Tests/Aperture.Modules.Sales.Tests.csproj" />
+    <Project Path="src/Modules/Sales/Aperture.Modules.Sales/Aperture.Modules.Sales.csproj" />
+  </Folder>
 </Solution>
