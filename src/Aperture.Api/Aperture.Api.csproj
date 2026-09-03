@@ -8,6 +8,7 @@
     <ProjectReference Include="..\Aperture.SharedKernel\Aperture.SharedKernel.csproj" />
     <ProjectReference Include="..\Aperture.Contracts\Aperture.Contracts.csproj" />
     <ProjectReference Include="..\Modules\Access\Aperture.Modules.Access\Aperture.Modules.Access.csproj" />
+    <ProjectReference Include="..\Modules\Sales\Aperture.Modules.Sales\Aperture.Modules.Sales.csproj" />
   </ItemGroup>
 
   <PropertyGroup>

@@ -8,6 +8,7 @@ The index for `docs/plans/`. `/ap-cycle` reads this first to work out where the 
 |---|---|---|---|---|
 | 001 | Tenancy, identity and the authorization spine | done | — | — |
 | 009 | [Raw SQL scope safety: a correct Dapper path, and a gate](009-raw-sql-scope-safety.md) | done | — | — |
+| 002 | [Sales: accounts, contacts, deals + deal state machine](002-sales-accounts-contacts-deals.md) | in-progress | P1 | P2 |
 
 Statuses describe the **plan**, not a portion: `draft` → `approved` → `in-progress` → `done`.
 A plan is `in-progress` from the moment its first portion is built until its last portion merges;
@@ -27,7 +28,6 @@ removed from *Shipped*; do **not** merge PR #24 as-is. See the plan's *Revision 
 
 | Plan | Title | Status |
 |---|---|---|
-| 002 | Sales: accounts, contacts, deals + deal state machine | not written |
 | 003 | Orders, fulfilment, stock reservation, idempotency | not written |
 | 004 | Outbox, worker, dead-letter handling | not written |
 | 005 | Comms timeline + SignalR | not written |
@@ -44,6 +44,7 @@ this is prevention while it is cheap rather than a retrofit after 002 lands the 
 
 | Portion | Title | Verified | PR |
 |---|---|---|---|
+| 002-P1 | Sales module foundation + the owed reader-role DI wiring | build clean (0 warnings); Sales 11/11, Api 49/49, SharedKernel 68/68, Access 52/52 against a live PostgreSQL container; `measure.sh gate` + `rawsql` green (0 production call sites, new `ScopedReaderRegistration.cs` exempt by sanctioned `SharedKernel/Data/` path); reader `NpgsqlDataSource` singleton + `ScopedConnection` scoped, reader connection distinct from EF owner (username `aperture_reader`), password from `Aperture:ReaderPassword` secret merged via `NpgsqlConnectionStringBuilder` (no committed prod credentials; only localhost dev fallbacks mirroring the owner pattern); a DI-resolved `ScopedConnection` proven to connect as the reader role and be RLS-bound (in-scope admitted, foreign denied, no-context → 0 rows), absent secret fails closed at first query (datasource builds, cannot authenticate); `sales` schema + module-owned `sales.__migrations` created by the real migration; tenant query-filter convention harness in place (bites in P2); reader GRANT/RLS deferred to P2 with the tables; no review findings | body in [`pr/002-P1.md`](pr/002-P1.md) |
 | 009-P5 | Differential equivalence on real PostgreSQL: EF and the raw path agree | build clean (0 warnings); Access 52/52 incl. 9 new differential cases against a live PostgreSQL container; `measure.sh gate` + `rawsql` green (0 production call sites, new test's Dapper/Npgsql exempt by path); five scope encodings (in-memory oracle, EF `WhereInScope`, P2 fragment, RLS policy, `ScopedConnection`) proven to select the identical id set on an adversarial seed (two tenants reusing the same user/team/region/account GUIDs, NULL scope columns, multi-grant rows, a foreign-tenant row matching every grant, empty set); test-only, no production code changed; anti-drift independently re-probed — weakened the RLS tenant conjunct (8/9 red) and the P2 fragment tenant term (8/9 red), both reverted | body in [`pr/009-P5.md`](pr/009-P5.md) |
 | 001-P1 | Tenant context, data scopes, permission registry | build clean (warnings-as-errors), 19 tests passing | merged — body in [`pr/001-P1.md`](pr/001-P1.md) |
 | 001-P2 | Access schema, tenant query-filter convention | build clean, 34 tests passing (15 against real PostgreSQL), gate passed | see [`pr/001-P2.md`](pr/001-P2.md) |
