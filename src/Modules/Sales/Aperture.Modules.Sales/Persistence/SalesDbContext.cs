@@ -20,6 +20,8 @@ public sealed class SalesDbContext(DbContextOptions<SalesDbContext> options, ITe
 {
     public const string Schema = "sales";
 
+    public DbSet<Account> Accounts => Set<Account>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.HasDefaultSchema(Schema);

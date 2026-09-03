@@ -208,7 +208,7 @@ by id" and "list deals for account", for 003 to read — no integration event in
 **Tests:** ScopedConnection resolves from the host container; reader connects and is RLS-bound (unset-context → 0 rows, edge 2 mechanism); the convention test scaffold runs (no entities yet — asserts trivially, tightened in P2).
 **Risk:** high — cross-cutting DI, a second connection string and secret, and the first host subscription to the scoped-read span. Review the connection-string/secret binding and that the reader role is never the EF owner.
 
-### [ ] P2 — Accounts: aggregate, tax-id dedup, write endpoints + scoped grid
+### [x] P2 — Accounts: aggregate, tax-id dedup, write endpoints + scoped grid
 **Touches:** `Sales/Domain/Account.cs`, `Persistence/Configurations/SalesConfigurations.cs` (+ Account), a migration adding `sales.accounts` + `ScopeRlsPolicy.Enable`, `Sales` application service, `Aperture.Api/Endpoints/AccountEndpoints.cs`, tests.
 **Done when:** create/read/update accounts under `accounts.write`/`accounts.read`; the accounts grid is served through `ScopedConnection` (keyset-paginated); `(tenant_id, tax_id)` dedup holds; `xmin` concurrency on update.
 **Tests:** edges 1, 2, 3, 4, 5, 16, 17, 18 (for accounts); tenant isolation and empty-scope deny via **both** EF and RLS; tax-id dedup within/across tenants; keyset pagination under concurrent insert.

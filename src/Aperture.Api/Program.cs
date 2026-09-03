@@ -72,6 +72,7 @@ app.MapHealthChecks("/health/live").AllowAnonymous();
 app.MapHealthChecks("/health/ready").AllowAnonymous();
 
 app.MapMeEndpoints();
+app.MapAccountEndpoints();
 
 app.Run();
 

@@ -64,13 +64,11 @@ public sealed class PostgresFixture : IAsyncLifetime
     {
         await _container.StartAsync();
 
-        // Migrate once per fixture with the real migration rather than EnsureCreated. This creates the
-        // `sales` schema and the sales.__migrations history table.
-        await using var context = CreateContext(TenantId.New());
-        await context.Database.MigrateAsync();
-
         // Provision the reader role the Sales migration deliberately does not create, then give it a
         // password so tests can authenticate as it. Idempotent, so re-running the fixture is safe.
+        // This runs BEFORE the migration: the AddAccounts migration adopts the RLS convention, which
+        // GRANTs SELECT on sales.accounts to aperture_reader — the role must already exist for that grant
+        // to resolve. In production the Access migration provisions the role first, for the same reason.
         await using var connection = new NpgsqlConnection(ConnectionString);
         await connection.OpenAsync();
 
@@ -107,6 +105,45 @@ public sealed class PostgresFixture : IAsyncLifetime
              """);
 
         await ExecuteAsync(connection, ScopeRlsPolicy.Enable(ProbeSchema, "rows"));
+
+        // Now migrate with the real migration: this creates the `sales` schema, the
+        // sales.__migrations history table, sales.accounts, and adopts the RLS convention on it
+        // (granting the reader role SELECT). The role exists by this point.
+        await using var context = CreateContext(TenantId.New());
+        await context.Database.MigrateAsync();
+    }
+
+    /// <summary>Seeds an account row through the owner connection (bypasses RLS), for reader-role read
+    /// tests. The five scope columns are set explicitly so the row's scope is exactly what a test states;
+    /// <c>account_id</c> defaults to the row's own id, matching the aggregate's invariant.</summary>
+    public async Task SeedAccountAsync(
+        Guid id,
+        TenantId tenant,
+        UserId owner,
+        string taxId,
+        Guid? team = null,
+        Guid? region = null,
+        DateTimeOffset? createdAt = null)
+    {
+        await using var connection = new NpgsqlConnection(ConnectionString);
+        await connection.OpenAsync();
+        await using var command = new NpgsqlCommand(
+            """
+            INSERT INTO sales.accounts
+                (id, tenant_id, owner_user_id, name, tax_id, credit_limit, payment_terms_days,
+                 region_id, team_id, account_id, created_at)
+            VALUES (@id, @tenant, @owner, @name, @tax, 0, 30, @region, @team, @id, @created)
+            """,
+            connection);
+        command.Parameters.AddWithValue("id", id);
+        command.Parameters.AddWithValue("tenant", tenant.Value);
+        command.Parameters.AddWithValue("owner", owner.Value);
+        command.Parameters.AddWithValue("name", $"acc-{id:N}");
+        command.Parameters.AddWithValue("tax", taxId);
+        command.Parameters.AddWithValue("region", (object?)region ?? DBNull.Value);
+        command.Parameters.AddWithValue("team", (object?)team ?? DBNull.Value);
+        command.Parameters.AddWithValue("created", createdAt ?? DateTimeOffset.UtcNow);
+        await command.ExecuteNonQueryAsync();
     }
 
     public Task DisposeAsync() => _container.DisposeAsync().AsTask();

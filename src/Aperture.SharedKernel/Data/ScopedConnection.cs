@@ -53,6 +53,13 @@ public sealed class ScopedConnection
     // ScopeColumns, so the fragment's alias-qualified column references resolve against it.
     private static readonly ActivitySource Activity = new(ActivitySourceName);
 
+    // Dapper is referenced only by this project (the raw-SQL gate enforces it), so this wrapper is the
+    // right and only home for Dapper's global column-matching configuration. Snake_case columns
+    // (owner_user_id, created_at, …) map to a DTO's PascalCase members without every caller repeating the
+    // setting or, worse, referencing Dapper to set it. A static constructor runs once, before the first
+    // QueryAsync builds a deserializer.
+    static ScopedConnection() => DefaultTypeMap.MatchNamesWithUnderscores = true;
+
     private readonly NpgsqlDataSource _reader;
     private readonly ILogger<ScopedConnection> _logger;
 

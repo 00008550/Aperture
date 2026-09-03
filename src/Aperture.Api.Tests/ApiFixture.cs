@@ -1,7 +1,10 @@
 using System.Text;
 using Aperture.Modules.Access.Domain;
 using Aperture.Modules.Access.Persistence;
+using Aperture.Modules.Sales.Persistence;
+using Aperture.SharedKernel.Data.RowLevelSecurity;
 using Aperture.SharedKernel.Multitenancy;
+using Npgsql;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
@@ -58,6 +61,11 @@ public sealed class ApiFixture : IAsyncLifetime
             // host starts unconfigured. UseSetting lands in host configuration, which is
             // already there.
             host.UseSetting("ConnectionStrings:Aperture", _container.GetConnectionString());
+            // The reader-role connection the raw-SQL grid uses, pointed at THIS container as the
+            // least-privilege aperture_reader role (created by the Access migration, given a password
+            // below). Without this the host would default to a localhost reader and the grid would fail.
+            host.UseSetting("ConnectionStrings:ApertureReader", ReaderConnectionString);
+            host.UseSetting("Aperture:ReaderPassword", ReaderPassword);
             host.UseSetting("Authentication:Issuer", Issuer);
             host.UseSetting("Authentication:Audience", Audience);
             host.UseSetting("Authentication:SigningKey", SigningKey);
@@ -65,11 +73,30 @@ public sealed class ApiFixture : IAsyncLifetime
             host.ConfigureLogging(logging => logging.AddProvider(Logs));
         });
 
-        // Migrate through the host's own registration, so the test also proves the API
-        // composes the module's DbContext correctly.
+        // Migrate through the host's own registration, so the test also proves the API composes each
+        // module's DbContext correctly. Access first (it provisions the aperture_reader role), then Sales
+        // (its accounts migration grants SELECT on sales.accounts to that role).
         using var scope = _factory.Services.CreateScope();
         await scope.ServiceProvider.GetRequiredService<AccessDbContext>().Database.MigrateAsync();
+        await scope.ServiceProvider.GetRequiredService<SalesDbContext>().Database.MigrateAsync();
+
+        // Give the reader role a password so the grid can authenticate as it — the out-of-band step the
+        // migration deliberately leaves to a deploy secret. Matches ReaderPassword above.
+        await using var connection = new NpgsqlConnection(_container.GetConnectionString());
+        await connection.OpenAsync();
+        await using var alter = new NpgsqlCommand(
+            $"ALTER ROLE {ScopeRlsPolicy.ReaderRole} PASSWORD '{ReaderPassword}';", connection);
+        await alter.ExecuteNonQueryAsync();
     }
+
+    private const string ReaderPassword = "aperture_reader";
+
+    private string ReaderConnectionString =>
+        new NpgsqlConnectionStringBuilder(_container.GetConnectionString())
+        {
+            Username = ScopeRlsPolicy.ReaderRole,
+            Password = ReaderPassword,
+        }.ConnectionString;
 
     public async Task DisposeAsync()
     {
