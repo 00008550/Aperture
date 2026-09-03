@@ -7,7 +7,7 @@ The index for `docs/plans/`. `/ap-cycle` reads this first to work out where the 
 | Plan | Title | Status | In flight | Next portion |
 |---|---|---|---|---|
 | 001 | Tenancy, identity and the authorization spine | done | — | — |
-| 009 | [Raw SQL scope safety: a correct Dapper path, and a gate](009-raw-sql-scope-safety.md) | in-progress | P5 (differential equivalence — the three encodings agree at the DBMS) | — |
+| 009 | [Raw SQL scope safety: a correct Dapper path, and a gate](009-raw-sql-scope-safety.md) | done | — | — |
 
 Statuses describe the **plan**, not a portion: `draft` → `approved` → `in-progress` → `done`.
 A plan is `in-progress` from the moment its first portion is built until its last portion merges;
@@ -44,6 +44,7 @@ this is prevention while it is cheap rather than a retrofit after 002 lands the 
 
 | Portion | Title | Verified | PR |
 |---|---|---|---|
+| 009-P5 | Differential equivalence on real PostgreSQL: EF and the raw path agree | build clean (0 warnings); Access 52/52 incl. 9 new differential cases against a live PostgreSQL container; `measure.sh gate` + `rawsql` green (0 production call sites, new test's Dapper/Npgsql exempt by path); five scope encodings (in-memory oracle, EF `WhereInScope`, P2 fragment, RLS policy, `ScopedConnection`) proven to select the identical id set on an adversarial seed (two tenants reusing the same user/team/region/account GUIDs, NULL scope columns, multi-grant rows, a foreign-tenant row matching every grant, empty set); test-only, no production code changed; anti-drift independently re-probed — weakened the RLS tenant conjunct (8/9 red) and the P2 fragment tenant term (8/9 red), both reverted | body in [`pr/009-P5.md`](pr/009-P5.md) |
 | 001-P1 | Tenant context, data scopes, permission registry | build clean (warnings-as-errors), 19 tests passing | merged — body in [`pr/001-P1.md`](pr/001-P1.md) |
 | 001-P2 | Access schema, tenant query-filter convention | build clean, 34 tests passing (15 against real PostgreSQL), gate passed | see [`pr/001-P2.md`](pr/001-P2.md) |
 | 001-P3 | JWT auth, permission policy provider, `GET /api/me` | build clean, 66 tests passing (32 new, against the real host and PostgreSQL), gate passed; 2 review findings fixed and mutation-checked | [#15](https://github.com/00008550/Aperture/pull/15) — body in [`pr/001-P3.md`](pr/001-P3.md) |
