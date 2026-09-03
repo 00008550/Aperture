@@ -94,6 +94,28 @@ public sealed class RawSqlIsScopedTests
             + "ungated path to raw SQL:\n  " + string.Join("\n  ", offenders));
     }
 
+    [Fact]
+    public void Exactly_one_project_references_the_Dapper_package()
+    {
+        // 009-P4 lands the one Dapper reference into the sanctioned project. "Exactly one" is
+        // stronger than "no others": it also catches the reference silently vanishing (a merge
+        // that drops it, and with it the only door to raw SQL) — the wrapper would then not
+        // compile, but this pins the invariant at the project graph regardless.
+        var referencing = EnumerateSource("*.csproj")
+            .Select(RelativeToRepo)
+            .Where(relative => DapperPackageReference.IsMatch(File.ReadAllText(RepoAbsolute(relative))))
+            .ToList();
+
+        Assert.True(
+            referencing is [_],
+            "Exactly one project must reference Dapper (the sanctioned wrapper). Found:\n  "
+            + string.Join("\n  ", referencing));
+        Assert.EndsWith(
+            "Aperture.SharedKernel/Aperture.SharedKernel.csproj",
+            referencing[0],
+            StringComparison.Ordinal);
+    }
+
     // --- Detector self-verification -------------------------------------------------------------
     // A scanner that finds nothing because its regex is broken passes identically to one that
     // finds nothing because the code is clean, and that failure is invisible. So the detector is

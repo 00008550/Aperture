@@ -383,7 +383,7 @@ fragment's intent — this is where the third encoding is pinned honest.
 **Risk:** medium–high — it is the structural core and a schema change. The role/policy SQL is
 hand-written and reviewed, not EF-generated. Worth reviewing the policy predicate specifically.
 
-### [ ] P4 — `ScopedConnection` revised: the only door, and it cannot run unscoped
+### [x] P4 — `ScopedConnection` revised: the only door, and it cannot run unscoped
 **Touches:** `Directory.Packages.props` (one Dapper `PackageVersion`),
 `src/Aperture.SharedKernel/Aperture.SharedKernel.csproj`, `Data/ScopedConnection.cs` (revised on the
 PR #24 branch — remove the placeholder; open a read-only tx; call `ScopeSessionContext`; connect as
