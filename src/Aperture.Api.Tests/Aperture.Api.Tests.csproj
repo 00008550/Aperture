@@ -25,6 +25,7 @@
     <ProjectReference Include="..\Aperture.Api\Aperture.Api.csproj" />
     <ProjectReference Include="..\Aperture.SharedKernel\Aperture.SharedKernel.csproj" />
     <ProjectReference Include="..\Modules\Access\Aperture.Modules.Access\Aperture.Modules.Access.csproj" />
+    <ProjectReference Include="..\Modules\Sales\Aperture.Modules.Sales\Aperture.Modules.Sales.csproj" />
   </ItemGroup>
 
 </Project>

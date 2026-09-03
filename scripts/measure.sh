@@ -39,8 +39,13 @@ endpoints() {
     endline=$(awk -v s="$lineno" 'NR>=s && /;[[:space:]]*$/ {print NR; exit}' "$file")
     [ -z "$endline" ] && endline=$((lineno + 6))
     local policy
+    # RequirePermission's argument may be a string literal OR a Permissions.* constant (the
+    # preferred form — one source of truth for the permission string). Both are a policy; forcing
+    # a literal here would push endpoints toward magic strings just to satisfy the grep, which is
+    # exactly the "gate people learn to override" this script warns against elsewhere. The real
+    # EndpointPolicyArchitectureTests asserts the built endpoints regardless of argument form.
     policy=$(sed -n "${lineno},${endline}p" "$file" \
-      | grep -oE 'RequirePermission\("[^"]*"\)|RequireAuthorization\("[^"]*"\)|RequireAuthorization\(\)|AllowAnonymous\(\)' \
+      | grep -oE 'RequirePermission\([^)]+\)|RequireAuthorization\("[^"]*"\)|RequireAuthorization\(\)|AllowAnonymous\(\)' \
       | head -1)
     if [ -z "$policy" ]; then
       policy="*** NO POLICY ***"

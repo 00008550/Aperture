@@ -1,3 +1,4 @@
+using Aperture.Modules.Sales.Application;
 using Aperture.Modules.Sales.Persistence;
 using Aperture.SharedKernel.Multitenancy;
 using Microsoft.Extensions.DependencyInjection;
@@ -19,6 +20,11 @@ public static class SalesModule
         services.TryAddTenantContext();
 
         services.AddDbContext<SalesDbContext>(options => options.UseSalesNpgsql(connectionString));
+
+        // Scoped: it holds the request's SalesDbContext (scoped) and the reader-role ScopedConnection
+        // (scoped, registered by the host's AddScopedReader). The interface is the only surface the API
+        // host binds to — the implementation stays internal (ARCHITECTURE.md §1).
+        services.AddScoped<IAccountService, AccountService>();
 
         return services;
     }
