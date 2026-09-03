@@ -403,7 +403,7 @@ reader connection do not leak context; the empty-scope `Information` line and th
 **Risk:** high — this API is what every future read query uses, and its signature is expensive to
 change later. Review the method signatures and the transaction/pooling handling specifically.
 
-### [ ] P5 — Differential equivalence on real PostgreSQL: EF and the raw path agree
+### [x] P5 — Differential equivalence on real PostgreSQL: EF and the raw path agree
 **Touches:** `src/Modules/Access/…/ScopeRlsEquivalenceTests.cs` (new/renamed from the old
 `ScopeSqlEquivalenceTests`), reusing `PostgresFixture` and the `ScopeProbe` 001-P4 added.
 **Depends on:** P4.
