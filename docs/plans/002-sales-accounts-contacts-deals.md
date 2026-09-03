@@ -202,7 +202,7 @@ by id" and "list deals for account", for 003 to read — no integration event in
 
 ## Portions
 
-### [ ] P1 — Sales module foundation + the owed reader-role DI wiring
+### [x] P1 — Sales module foundation + the owed reader-role DI wiring
 **Touches:** new `src/Modules/Sales/Aperture.Modules.Sales/{csproj, SalesModule.cs, SalesDbContext.cs, Domain/ITenantOwned.cs, Persistence/SalesNpgsqlOptions.cs, Persistence/Migrations/*_InitialSalesSchema.cs}` (empty `sales` schema + reader grants); new `…Sales.Tests/{csproj, PostgresFixture.cs, ScopeReaderWiringTests.cs, TenantQueryFilterConventionTests.cs}`; `Aperture.slnx`; `src/Aperture.Api/Program.cs` (register `AddSalesModule`, build the reader `NpgsqlDataSource` from a **distinct** reader connection string + secret-sourced `aperture_reader` password, register `ScopedConnection`, subscribe to its `ActivitySource`); `appsettings` reader connection-string key.
 **Done when:** the API boots with `ScopedConnection` resolvable from DI over a reader `NpgsqlDataSource`; a reader-role connection that establishes no session context returns **zero** rows against a probe (fail-closed) in a real-PostgreSQL test; the `sales` schema and its `__migrations` history exist; the Sales tenant-filter convention harness is in place. `measure.sh gate` and `rawsql` stay green (reader path is the sanctioned wrapper).
 **Tests:** ScopedConnection resolves from the host container; reader connects and is RLS-bound (unset-context → 0 rows, edge 2 mechanism); the convention test scaffold runs (no entities yet — asserts trivially, tightened in P2).
