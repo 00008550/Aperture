@@ -73,6 +73,7 @@ app.MapHealthChecks("/health/ready").AllowAnonymous();
 
 app.MapMeEndpoints();
 app.MapAccountEndpoints();
+app.MapContactEndpoints();
 
 app.Run();
 

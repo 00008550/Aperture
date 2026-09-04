@@ -36,7 +36,9 @@ internal sealed class AccountConfiguration : IEntityTypeConfiguration<Account>
         builder.Property(a => a.PaymentTermsDays).HasColumnName("payment_terms_days");
         builder.Property(a => a.RegionId).HasColumnName("region_id");
         builder.Property(a => a.TeamId).HasColumnName("team_id");
-        builder.Property(a => a.AccountId).HasColumnName("account_id");
+        // Nullable CLR property (to match IScopedResource so the EF scope predicate translates), but the
+        // column is NOT NULL — an account always carries account_id = id.
+        builder.Property(a => a.AccountId).HasColumnName("account_id").IsRequired();
         builder.Property(a => a.CreatedAt).HasColumnName("created_at");
 
         // xmin as the optimistic concurrency token (ARCHITECTURE.md §5). Npgsql maps the system column;
@@ -52,5 +54,41 @@ internal sealed class AccountConfiguration : IEntityTypeConfiguration<Account>
         // Keyset pagination reads the grid ordered by (created_at, id); this index serves that ordering
         // and the scope predicate's tenant term as its leading column.
         builder.HasIndex(a => new { a.TenantId, a.CreatedAt, a.Id });
+    }
+}
+
+internal sealed class ContactConfiguration : IEntityTypeConfiguration<Contact>
+{
+    public void Configure(EntityTypeBuilder<Contact> builder)
+    {
+        builder.ToTable("contacts", SalesDbContext.Schema);
+        builder.HasKey(c => c.Id);
+        builder.Property(c => c.Id).HasColumnName("id");
+        builder.Property(c => c.TenantId).HasColumnName("tenant_id").HasConversion(TypedIdConverters.Tenant);
+        // Nullable CLR property (to match IScopedResource so the EF scope predicate translates); mapped
+        // IsRequired so the column is NOT NULL and the one-account FK below is enforced.
+        builder.Property(c => c.AccountId).HasColumnName("account_id").IsRequired();
+        builder.Property(c => c.OwnerUserId).HasColumnName("owner_user_id").HasConversion(TypedIdConverters.User);
+        builder.Property(c => c.TeamId).HasColumnName("team_id");
+        builder.Property(c => c.RegionId).HasColumnName("region_id");
+        builder.Property(c => c.Name).HasColumnName("name").HasMaxLength(200).IsRequired();
+        builder.Property(c => c.Email).HasColumnName("email").HasMaxLength(320);
+        builder.Property(c => c.Phone).HasColumnName("phone").HasMaxLength(64);
+        builder.Property(c => c.Messenger).HasColumnName("messenger").HasMaxLength(200);
+        builder.Property(c => c.IsDeparted).HasColumnName("is_departed");
+        builder.Property(c => c.DepartedAt).HasColumnName("departed_at");
+        builder.Property(c => c.CreatedAt).HasColumnName("created_at");
+
+        // The parent-account FK. It enforces the one-account rule at the database: a contact whose
+        // account_id names no account cannot commit. account_id doubles as the scope column (a contact's
+        // account is its own account), so this single column carries both the relationship and the scope.
+        builder.HasOne<Account>()
+            .WithMany()
+            .HasForeignKey(c => c.AccountId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        // Serves the active-contacts grid ordering — (created_at, id) keyset paging — with the tenant term
+        // leading the scope predicate. is_departed is included so the active filter is covered.
+        builder.HasIndex(c => new { c.TenantId, c.CreatedAt, c.Id });
     }
 }

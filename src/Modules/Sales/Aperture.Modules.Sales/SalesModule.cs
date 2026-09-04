@@ -25,6 +25,7 @@ public static class SalesModule
         // (scoped, registered by the host's AddScopedReader). The interface is the only surface the API
         // host binds to — the implementation stays internal (ARCHITECTURE.md §1).
         services.AddScoped<IAccountService, AccountService>();
+        services.AddScoped<IContactService, ContactService>();
 
         return services;
     }

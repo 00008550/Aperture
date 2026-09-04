@@ -69,8 +69,14 @@ public sealed class Account : ITenantOwned, IScopedResource
 
     public Guid? TeamId { get; private set; }
 
-    /// <summary>Equal to <see cref="Id"/>: the account is its own scope target (see the class remarks).</summary>
-    public Guid AccountId { get; private set; }
+    /// <summary>
+    /// Equal to <see cref="Id"/>: the account is its own scope target (see the class remarks). Typed
+    /// <see cref="Nullable{Guid}"/> to match <see cref="IScopedResource.AccountId"/> so the EF scope
+    /// predicate (which lifts to a nullable comparison, <c>account_id = @p</c> with NULL narrowing) can be
+    /// translated against this column; it is always set and mapped <c>IsRequired</c>, so the column is
+    /// NOT NULL.
+    /// </summary>
+    public Guid? AccountId { get; private set; }
 
     public DateTimeOffset CreatedAt { get; private set; }
 
@@ -80,10 +86,6 @@ public sealed class Account : ITenantOwned, IScopedResource
     /// than silently overwriting (ARCHITECTURE.md §5). Never set by the application.
     /// </summary>
     public uint Version { get; private set; }
-
-    // IScopedResource.AccountId is nullable to admit resources that have no account; an account always
-    // has one (itself), so this narrowing conversion is total.
-    Guid? IScopedResource.AccountId => AccountId;
 
     /// <summary>
     /// Applies an edit to the account's business fields and its scope assignment (owner, region, team).
