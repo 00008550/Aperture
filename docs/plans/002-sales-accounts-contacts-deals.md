@@ -1,6 +1,6 @@
 # 002 — Sales: accounts, contacts, deals + the deal state machine
 
-Status: in-progress
+Status: done
 Roadmap: ARCHITECTURE.md §13 item 002
 Measured: `scripts/measure.sh` on 2026-09-03, commit `173baee` (branch `feat/009-P4-scoped-connection-reader-role`, with 009 P1–P5 merged to `master`)
 
@@ -232,7 +232,7 @@ by id" and "list deals for account", for 003 to read — no integration event in
 **Tests:** edges 9, 10, 11, 12, 15; each legal edge; every illegal edge rejected; audit row written with from→to and reason.
 **Risk:** medium — the rule guards and the frozen-price semantics.
 
-### [ ] P6 — Discount approval: threshold hold + lead approval
+### [x] P6 — Discount approval: threshold hold + lead approval
 **Touches:** `Deal` pending-approval fields already added in P4/P5 config; the over-threshold guard in the transition path; `POST /api/deals/{id}/approve-discount` under `deals.discount.approve`; audit; tests. (Migration only if a pending-approval column was not added earlier — prefer adding it in P4's `deals` table to avoid a follow-on migration.)
 **Done when:** a discount above the agent's threshold keeps the deal in `negotiation` with a recorded pending approval; a user with `deals.discount.approve` clears it (who + why, audited) and the deal may then advance; a user without that permission is denied; an empty scope set still denies the underlying read.
 **Tests:** edges 13, 14; over-threshold blocks advance; approval records who/why; permission boundary; this is the portion that turns `deals.discount.approve` from *declared, never enforced* into enforced.

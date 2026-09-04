@@ -23,7 +23,7 @@ public static class Permissions
     public const string ContactsWrite = "contacts.write";
     public const string DealsRead = "deals.read";
     public const string DealsWrite = "deals.write";
-    public const string DealsApproveDiscount = "deals.discount.approve";
+    public const string DealsDiscountApprove = "deals.discount.approve";
     public const string OrdersRead = "orders.read";
     public const string OrdersWrite = "orders.write";
     public const string OrdersConfirm = "orders.confirm";
@@ -50,7 +50,7 @@ public static class Permissions
         ContactsWrite,
         DealsRead,
         DealsWrite,
-        DealsApproveDiscount,
+        DealsDiscountApprove,
         OrdersRead,
         OrdersWrite,
         OrdersConfirm,

@@ -44,8 +44,10 @@ public sealed class AccountReassignmentTests(PostgresFixture postgres)
     private DealService DealsFor(TenantId tenant, out SalesDbContext db)
     {
         db = postgres.CreateContext(tenant);
-        return new DealService(db, new ScopedConnection(
-            NpgsqlDataSource.Create(ReaderConn), NullLogger<ScopedConnection>.Instance));
+        return new DealService(
+            db,
+            new ScopedConnection(NpgsqlDataSource.Create(ReaderConn), NullLogger<ScopedConnection>.Instance),
+            new ConfiguredDiscountThresholdProvider(100m));
     }
 
     private static async Task<IReadOnlyList<Guid>> AccountGridAsync(AccountService s, DataScopeSet scopes)

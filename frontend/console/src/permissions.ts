@@ -9,7 +9,7 @@ export const Permissions = {
   ContactsWrite: 'contacts.write',
   DealsRead: 'deals.read',
   DealsWrite: 'deals.write',
-  DealsApproveDiscount: 'deals.discount.approve',
+  DealsDiscountApprove: 'deals.discount.approve',
   OrdersRead: 'orders.read',
   OrdersWrite: 'orders.write',
   OrdersConfirm: 'orders.confirm',

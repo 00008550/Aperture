@@ -15,11 +15,26 @@ namespace Aperture.Modules.Sales;
 /// </summary>
 public static class SalesModule
 {
-    public static IServiceCollection AddSalesModule(this IServiceCollection services, string connectionString)
+    /// <summary>
+    /// Registers the Sales module. <paramref name="discountApprovalThresholdPct"/> is the tenant-wide
+    /// discount ceiling (a percent, 0–100) above which a deal cannot be won without a lead's approval
+    /// (DOMAIN.md §2 rule 3); the host binds it from <c>Sales:DiscountApprovalThresholdPct</c>. The default
+    /// mirrors that configuration key's fallback so a host that omits the setting still enforces a sane bar.
+    /// </summary>
+    public static IServiceCollection AddSalesModule(
+        this IServiceCollection services,
+        string connectionString,
+        decimal discountApprovalThresholdPct = 20m)
     {
         services.TryAddTenantContext();
 
         services.AddDbContext<SalesDbContext>(options => options.UseSalesNpgsql(connectionString));
+
+        // The tenant-wide discount threshold (open question 2). Singleton: the configured value does not vary
+        // per request. The provider interface is the seam a future per-tenant store replaces without touching
+        // the state machine or the service.
+        services.AddSingleton<IDiscountThresholdProvider>(
+            new ConfiguredDiscountThresholdProvider(discountApprovalThresholdPct));
 
         // Scoped: it holds the request's SalesDbContext (scoped) and the reader-role ScopedConnection
         // (scoped, registered by the host's AddScopedReader). The interface is the only surface the API

@@ -33,11 +33,30 @@ public static class DealStateMachine
 
             [(Deal.Stages.Quoted, Deal.Stages.Negotiation)] = static (_, _) => null,
 
-            // Rule 1: won requires at least one line with a price AND a quantity.
-            [(Deal.Stages.Negotiation, Deal.Stages.Won)] = static (deal, _) =>
-                deal.Lines.Any(l => l.UnitPrice > 0m && l.Quantity > 0)
-                    ? null
-                    : DealTransitionStatus.NoPricedLine,
+            // Rule 1: won requires at least one line with a price AND a quantity. Rule 3: a discount above
+            // the tenant threshold cannot advance on the agent's say-so — it holds in negotiation with a
+            // pending approval until a lead with deals.discount.approve clears it.
+            [(Deal.Stages.Negotiation, Deal.Stages.Won)] = static (deal, input) =>
+            {
+                if (!deal.Lines.Any(l => l.UnitPrice > 0m && l.Quantity > 0))
+                {
+                    return DealTransitionStatus.NoPricedLine;
+                }
+
+                // The threshold is resolved on the tenant and supplied by the service. A null threshold means
+                // the discount check is not applied — a direct-transition caller not exercising rule 3. When a
+                // threshold is present and the deal's discount exceeds it, the move is held for a lead's
+                // approval unless that approval has already been recorded (IsDiscountApproved). The agent's own
+                // permission never clears this; only deals.discount.approve does.
+                if (input.DiscountThresholdPct is { } threshold
+                    && deal.DiscountPct > threshold
+                    && !deal.IsDiscountApproved)
+                {
+                    return DealTransitionStatus.DiscountApprovalRequired;
+                }
+
+                return null;
+            },
 
             // Rule 4: lost requires a reason code ("no reason" was the most expensive missing field).
             [(Deal.Stages.Negotiation, Deal.Stages.Lost)] = static (_, input) =>
@@ -69,12 +88,18 @@ public static class DealStateMachine
 }
 
 /// <summary>
-/// What a transition needs beyond the target stage: the lost reason code (rule 4) and the price-list version
-/// to freeze at <c>quoted</c> (rule 2). Both are optional in general and required only by the specific edge
-/// whose guard reads them — a null <see cref="Reason"/> is fine for every edge except the one into
-/// <c>lost</c>, and a null <see cref="PriceListVersion"/> for every edge except the one into <c>quoted</c>.
+/// What a transition needs beyond the target stage: the lost reason code (rule 4), the price-list version
+/// to freeze at <c>quoted</c> (rule 2), and the tenant discount threshold the move into <c>won</c> is
+/// checked against (rule 3). All are optional in general and read only by the specific edge whose guard
+/// needs them — a null <see cref="Reason"/> is fine for every edge except the one into <c>lost</c>, a null
+/// <see cref="PriceListVersion"/> for every edge except the one into <c>quoted</c>, and a null
+/// <see cref="DiscountThresholdPct"/> skips the over-threshold check entirely (used by direct-transition
+/// callers not exercising the discount path; the service always supplies the resolved tenant threshold).
 /// </summary>
-public sealed record DealTransitionInput(string? Reason = null, string? PriceListVersion = null);
+public sealed record DealTransitionInput(
+    string? Reason = null,
+    string? PriceListVersion = null,
+    decimal? DiscountThresholdPct = null);
 
 /// <summary>
 /// The verdict on a transition attempt. Every failing value is a domain outcome the caller maps to a status
@@ -99,6 +124,12 @@ public enum DealTransitionStatus
 
     /// <summary>Rule 2: <c>quoted</c> was requested with no price-list version to freeze.</summary>
     PriceListVersionRequired = 5,
+
+    /// <summary>Rule 3: <c>won</c> was requested with a discount above the tenant threshold and no approval on
+    /// record. Unlike the other failures this is not a plain rejection — the deal records a pending approval
+    /// and stays in <c>negotiation</c>; a lead with <c>deals.discount.approve</c> must clear it before the
+    /// move can succeed.</summary>
+    DiscountApprovalRequired = 6,
 }
 
 /// <summary>The outcome of <see cref="Deal.Transition"/>: the machine's verdict plus the stages it moved

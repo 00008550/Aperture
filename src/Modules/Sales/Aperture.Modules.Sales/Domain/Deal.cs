@@ -165,6 +165,17 @@ public sealed class Deal : ITenantOwned, IScopedResource
 
         var from = Stage;
         var status = DealStateMachine.Evaluate(this, to, input);
+
+        // Rule 3, the one verdict that mutates without advancing: an over-threshold discount holds the deal in
+        // negotiation with a recorded pending approval rather than moving to won. The stage does NOT change;
+        // the caller persists the pending flag and a lead must clear it (ApproveDiscount) before a retry can
+        // win. Reported with from == to (still negotiation) so a caller does not mistake it for a move.
+        if (status == DealTransitionStatus.DiscountApprovalRequired)
+        {
+            HoldForDiscountApproval();
+            return new DealTransitionResult(status, from, from);
+        }
+
         if (status != DealTransitionStatus.Transitioned)
         {
             return new DealTransitionResult(status, from, to);
@@ -209,6 +220,42 @@ public sealed class Deal : ITenantOwned, IScopedResource
         OwnerUserId = account.OwnerUserId;
         TeamId = account.TeamId;
         RegionId = account.RegionId;
+    }
+
+    /// <summary>
+    /// True once a discount above the tenant threshold has been approved for the deal's current discount
+    /// level: a recorded, no-longer-pending approval at or above <see cref="DiscountPct"/> (DOMAIN.md §2
+    /// rule 3). This is what lets the state machine's <c>won</c> guard pass an over-threshold deal after a
+    /// lead has cleared it, and only then. While an approval is outstanding (<see cref="PendingApproval"/>)
+    /// this is false — a pending request is not an approval.
+    /// </summary>
+    public bool IsDiscountApproved =>
+        !PendingApproval && PendingApprovalDiscountPct is { } approved && approved >= DiscountPct;
+
+    /// <summary>
+    /// Records that the deal's over-threshold discount is now approved (DOMAIN.md §2 rule 3): the outstanding
+    /// request is cleared and the approved discount level is stamped, so the next attempt to move to
+    /// <c>won</c> passes the threshold guard. The <em>who</em> and <em>why</em> of the approval are captured
+    /// in the audit trail by the composition root (the same host-side seam that audits transitions), not on
+    /// this row. Idempotent: approving an already-approved or not-pending deal simply re-stamps the same
+    /// level.
+    /// </summary>
+    public void ApproveDiscount()
+    {
+        PendingApproval = false;
+        PendingApprovalDiscountPct = DiscountPct;
+    }
+
+    /// <summary>
+    /// Marks the deal as awaiting a lead's approval for its over-threshold discount and records the level that
+    /// is being escalated. The stage is deliberately not touched here — the deal stays in <c>negotiation</c>.
+    /// Called only by <see cref="Transition"/> when the <c>won</c> guard returns
+    /// <see cref="DealTransitionStatus.DiscountApprovalRequired"/>.
+    /// </summary>
+    private void HoldForDiscountApproval()
+    {
+        PendingApproval = true;
+        PendingApprovalDiscountPct = DiscountPct;
     }
 
     private static string Require(string value, string paramName) =>

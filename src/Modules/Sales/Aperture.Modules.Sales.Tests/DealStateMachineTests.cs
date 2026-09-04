@@ -26,7 +26,12 @@ public sealed class DealStateMachineTests(PostgresFixture postgres)
     {
         db = postgres.CreateContext(tenant);
         var reader = NpgsqlDataSource.Create(postgres.ReaderConnectionString);
-        return new DealService(db, new ScopedConnection(reader, NullLogger<ScopedConnection>.Instance));
+        // A threshold above the 5% discount these state-machine tests use, so won is never held for approval
+        // here — the discount-approval path (rule 3) is exercised by DealDiscountApprovalTests.
+        return new DealService(
+            db,
+            new ScopedConnection(reader, NullLogger<ScopedConnection>.Instance),
+            new ConfiguredDiscountThresholdProvider(100m));
     }
 
     private AccountService AccountsFor(TenantId tenant)

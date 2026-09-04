@@ -27,7 +27,12 @@ public sealed class DealServiceTests(PostgresFixture postgres)
     {
         db = postgres.CreateContext(tenant);
         var reader = NpgsqlDataSource.Create(postgres.ReaderConnectionString);
-        return new DealService(db, new ScopedConnection(reader, NullLogger<ScopedConnection>.Instance));
+        // A threshold above any discount these tests use (they never touch the rule-3 path): no create/read/
+        // add-line test should trip discount approval.
+        return new DealService(
+            db,
+            new ScopedConnection(reader, NullLogger<ScopedConnection>.Instance),
+            new ConfiguredDiscountThresholdProvider(100m));
     }
 
     private AccountService AccountsFor(TenantId tenant)

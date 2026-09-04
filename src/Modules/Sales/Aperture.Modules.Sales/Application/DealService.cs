@@ -38,11 +38,13 @@ internal sealed class DealService : IDealService
 
     private readonly SalesDbContext _db;
     private readonly ScopedConnection _reader;
+    private readonly IDiscountThresholdProvider _thresholds;
 
-    public DealService(SalesDbContext db, ScopedConnection reader)
+    public DealService(SalesDbContext db, ScopedConnection reader, IDiscountThresholdProvider thresholds)
     {
         _db = db ?? throw new ArgumentNullException(nameof(db));
         _reader = reader ?? throw new ArgumentNullException(nameof(reader));
+        _thresholds = thresholds ?? throw new ArgumentNullException(nameof(thresholds));
     }
 
     public async Task<DealCreateResult> CreateAsync(
@@ -163,12 +165,20 @@ internal sealed class DealService : IDealService
                 DealTransitionOutcome.Conflict, ToView(deal), deal.Stage, request.TargetStage);
         }
 
-        var input = new DealTransitionInput(request.Reason, request.PriceListVersion);
+        // Rule 3's threshold is resolved on the deal's tenant and handed to the state machine, which decides
+        // whether an over-threshold move to won must hold for approval. Resolved here (not in the machine)
+        // because it is an application concern — a tenant setting — that the pure domain must not reach for.
+        var threshold = await _thresholds
+            .GetThresholdPctAsync(deal.TenantId, cancellationToken)
+            .ConfigureAwait(false);
+        var input = new DealTransitionInput(request.Reason, request.PriceListVersion, threshold);
         var result = deal.Transition(request.TargetStage, input);
-        if (!result.Succeeded)
+
+        // Only two verdicts mutate the deal and must be persisted: a clean transition, and an over-threshold
+        // discount that recorded a pending approval (rule 3) while staying in negotiation. Every other verdict
+        // (illegal edge, failed rule guard) changed nothing — return the mapped outcome without saving.
+        if (result.Status is not (DealTransitionStatus.Transitioned or DealTransitionStatus.DiscountApprovalRequired))
         {
-            // An illegal edge or a failed rule guard: nothing was mutated. Map the machine's verdict to the
-            // application outcome and return without saving.
             return new DealTransitionResponse(
                 Map(result.Status), null, result.FromStage, result.ToStage);
         }
@@ -195,8 +205,72 @@ internal sealed class DealService : IDealService
                 result.ToStage);
         }
 
-        return new DealTransitionResponse(
-            DealTransitionOutcome.Transitioned, ToView(deal), result.FromStage, result.ToStage);
+        // The pending-approval hold surfaces as its own outcome carrying the deal (PendingApproval set) so the
+        // caller can show it and route to an approver; a clean move surfaces as Transitioned.
+        var outcome = result.Status == DealTransitionStatus.Transitioned
+            ? DealTransitionOutcome.Transitioned
+            : DealTransitionOutcome.PendingApproval;
+
+        return new DealTransitionResponse(outcome, ToView(deal), result.FromStage, result.ToStage);
+    }
+
+    public async Task<DealDiscountApprovalResult> ApproveDiscountAsync(
+        DataScopeSet scopes,
+        Guid dealId,
+        ApproveDiscountRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(scopes);
+        ArgumentNullException.ThrowIfNull(request);
+
+        // Loaded through the scope predicate: a deal outside the caller's scope cannot be approved, and is
+        // reported as not-found rather than forbidden — the non-leaking deny the rest of the service uses. An
+        // empty scope set yields 1=0 and denies here too, so the underlying read stays fail-closed even though
+        // the who-may-approve permission is enforced above at the endpoint.
+        var deal = await _db.Deals
+            .Include(d => d.Lines)
+            .WhereInScope(scopes)
+            .SingleOrDefaultAsync(d => d.Id == dealId, cancellationToken)
+            .ConfigureAwait(false);
+
+        if (deal is null)
+        {
+            return new DealDiscountApprovalResult(DealDiscountApprovalOutcome.DealNotFound, null);
+        }
+
+        if (!deal.PendingApproval)
+        {
+            // Nothing to clear. Returning the deal (unchanged) lets the caller confirm its state.
+            return new DealDiscountApprovalResult(DealDiscountApprovalOutcome.NotPending, ToView(deal));
+        }
+
+        // The lead's optimistic pre-check, mirroring the transition path: a stale version is a conflict before
+        // any change. The xmin token then guards the load-to-commit window below.
+        if (request.ExpectedVersion is { } expected && deal.Version != expected)
+        {
+            return new DealDiscountApprovalResult(DealDiscountApprovalOutcome.Conflict, ToView(deal));
+        }
+
+        deal.ApproveDiscount();
+
+        try
+        {
+            await _db.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            var current = await _db.Deals
+                .AsNoTracking()
+                .Include(d => d.Lines)
+                .WhereInScope(scopes)
+                .SingleOrDefaultAsync(d => d.Id == dealId, cancellationToken)
+                .ConfigureAwait(false);
+
+            return new DealDiscountApprovalResult(
+                DealDiscountApprovalOutcome.Conflict, current is null ? null : ToView(current));
+        }
+
+        return new DealDiscountApprovalResult(DealDiscountApprovalOutcome.Approved, ToView(deal));
     }
 
     private static DealTransitionOutcome Map(DealTransitionStatus status) => status switch
