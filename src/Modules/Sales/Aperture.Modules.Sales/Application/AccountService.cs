@@ -250,7 +250,7 @@ internal sealed class AccountService : IAccountService
             a.PaymentTermsDays,
             a.RegionId,
             a.TeamId,
-            a.AccountId,
+            a.AccountId!.Value,
             a.CreatedAt,
             a.Version);
 

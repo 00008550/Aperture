@@ -146,6 +146,41 @@ public sealed class PostgresFixture : IAsyncLifetime
         await command.ExecuteNonQueryAsync();
     }
 
+    /// <summary>Seeds a contact row through the owner connection (bypasses RLS), for reader-role read
+    /// tests. The five scope columns are set explicitly so the row's scope is exactly what a test states.</summary>
+    public async Task SeedContactAsync(
+        Guid id,
+        TenantId tenant,
+        Guid accountId,
+        UserId owner,
+        Guid? team = null,
+        Guid? region = null,
+        bool isDeparted = false,
+        DateTimeOffset? createdAt = null)
+    {
+        await using var connection = new NpgsqlConnection(ConnectionString);
+        await connection.OpenAsync();
+        await using var command = new NpgsqlCommand(
+            """
+            INSERT INTO sales.contacts
+                (id, tenant_id, account_id, owner_user_id, team_id, region_id,
+                 name, email, phone, messenger, is_departed, created_at)
+            VALUES (@id, @tenant, @account, @owner, @team, @region,
+                    @name, NULL, NULL, NULL, @departed, @created)
+            """,
+            connection);
+        command.Parameters.AddWithValue("id", id);
+        command.Parameters.AddWithValue("tenant", tenant.Value);
+        command.Parameters.AddWithValue("account", accountId);
+        command.Parameters.AddWithValue("owner", owner.Value);
+        command.Parameters.AddWithValue("team", (object?)team ?? DBNull.Value);
+        command.Parameters.AddWithValue("region", (object?)region ?? DBNull.Value);
+        command.Parameters.AddWithValue("name", $"contact-{id:N}");
+        command.Parameters.AddWithValue("departed", isDeparted);
+        command.Parameters.AddWithValue("created", createdAt ?? DateTimeOffset.UtcNow);
+        await command.ExecuteNonQueryAsync();
+    }
+
     public Task DisposeAsync() => _container.DisposeAsync().AsTask();
 
     public SalesDbContext CreateContext(TenantId tenant) =>

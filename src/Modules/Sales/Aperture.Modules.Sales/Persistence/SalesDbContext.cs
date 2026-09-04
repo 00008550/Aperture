@@ -22,6 +22,8 @@ public sealed class SalesDbContext(DbContextOptions<SalesDbContext> options, ITe
 
     public DbSet<Account> Accounts => Set<Account>();
 
+    public DbSet<Contact> Contacts => Set<Contact>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.HasDefaultSchema(Schema);
