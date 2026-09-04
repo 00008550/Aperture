@@ -74,6 +74,7 @@ app.MapHealthChecks("/health/ready").AllowAnonymous();
 app.MapMeEndpoints();
 app.MapAccountEndpoints();
 app.MapContactEndpoints();
+app.MapDealEndpoints();
 
 app.Run();
 

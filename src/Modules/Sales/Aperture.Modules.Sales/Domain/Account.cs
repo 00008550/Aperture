@@ -89,9 +89,13 @@ public sealed class Account : ITenantOwned, IScopedResource
 
     /// <summary>
     /// Applies an edit to the account's business fields and its scope assignment (owner, region, team).
-    /// Reassigning the owner or region is a deliberate <c>accounts.write</c> action, distinct from the
-    /// tenant and id which are immutable. In P2 an account has no children; re-stamping contacts and
-    /// deals on reassignment arrives with those aggregates (P3/P4, edge 8).
+    /// Reassigning the owner, region or team is a deliberate <c>accounts.write</c> action, distinct from
+    /// the tenant and id which are immutable. Because the account's children — its contacts
+    /// (<see cref="Contact.Reinherit"/>) and its deals (<see cref="Deal.Reinherit"/>) — denormalise these
+    /// three inherited scope columns, a reassignment must re-stamp every child in the <em>same</em>
+    /// transaction as this edit, or a child is left visible under the old grant and invisible under the
+    /// new. That re-stamp is orchestrated by <see cref="Application.AccountService.UpdateAsync"/> (edge 8);
+    /// this method changes only the account's own row.
     /// </summary>
     public void Update(
         UserId ownerUserId,

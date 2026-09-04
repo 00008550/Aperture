@@ -26,6 +26,7 @@ public static class SalesModule
         // host binds to — the implementation stays internal (ARCHITECTURE.md §1).
         services.AddScoped<IAccountService, AccountService>();
         services.AddScoped<IContactService, ContactService>();
+        services.AddScoped<IDealService, DealService>();
 
         return services;
     }

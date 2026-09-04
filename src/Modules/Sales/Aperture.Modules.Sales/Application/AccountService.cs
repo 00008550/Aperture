@@ -142,6 +142,32 @@ internal sealed class AccountService : IAccountService
             request.RegionId,
             request.TeamId);
 
+        // Edge 8, the child re-stamp. The account's contacts and deals denormalise the three inherited
+        // scope columns (owner/team/region); a reassignment that changed any of them must re-stamp every
+        // child, or the child is left visible under the old grant and invisible under the new. Both child
+        // loads are by account_id within the tenant global filter — NOT WhereInScope, because the children
+        // still carry the pre-edit owner and a scope-narrowed load could miss one and leave it stale. They
+        // are tracked by this same context, so the account edit and every child re-stamp share one
+        // SaveChangesAsync — one transaction: all commit or all roll back. tenant_id and account_id are
+        // never touched (a child does not change tenant or parent).
+        var contacts = await _db.Contacts
+            .Where(c => c.AccountId == account.Id)
+            .ToListAsync(cancellationToken)
+            .ConfigureAwait(false);
+        foreach (var contact in contacts)
+        {
+            contact.Reinherit(account);
+        }
+
+        var deals = await _db.Deals
+            .Where(d => d.AccountId == account.Id)
+            .ToListAsync(cancellationToken)
+            .ConfigureAwait(false);
+        foreach (var deal in deals)
+        {
+            deal.Reinherit(account);
+        }
+
         try
         {
             await _db.SaveChangesAsync(cancellationToken).ConfigureAwait(false);

@@ -74,7 +74,8 @@ public sealed class Contact : ITenantOwned, IScopedResource
     /// </summary>
     public Guid? AccountId { get; private set; }
 
-    /// <summary>The owning agent, inherited from the account. Re-stamped when the account is reassigned (P4, edge 8).</summary>
+    /// <summary>The owning agent, inherited from the account. Re-stamped by <see cref="Reinherit"/> when the
+    /// account is reassigned (edge 8).</summary>
     public UserId OwnerUserId { get; private set; }
 
     public Guid? TeamId { get; private set; }
@@ -111,6 +112,23 @@ public sealed class Contact : ITenantOwned, IScopedResource
 
         IsDeparted = true;
         DepartedAt = DateTimeOffset.UtcNow;
+    }
+
+    /// <summary>
+    /// Re-stamps the inherited scope columns (owner, team, region) from <paramref name="account"/> after
+    /// that account is reassigned (edge 8). <see cref="TenantId"/> and <see cref="AccountId"/> are
+    /// immutable and deliberately not touched — a contact does not change tenant or parent, only the
+    /// owner / team / region it inherits. Called by <see cref="Application.AccountService"/> in the same
+    /// unit of work as the account edit, so a reassignment can never leave a contact visible under a
+    /// stale grant.
+    /// </summary>
+    public void Reinherit(Account account)
+    {
+        ArgumentNullException.ThrowIfNull(account);
+
+        OwnerUserId = account.OwnerUserId;
+        TeamId = account.TeamId;
+        RegionId = account.RegionId;
     }
 
     private static string Require(string value, string paramName) =>
