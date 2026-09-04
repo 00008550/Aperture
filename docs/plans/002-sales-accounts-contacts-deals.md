@@ -214,7 +214,7 @@ by id" and "list deals for account", for 003 to read — no integration event in
 **Tests:** edges 1, 2, 3, 4, 5, 16, 17, 18 (for accounts); tenant isolation and empty-scope deny via **both** EF and RLS; tax-id dedup within/across tenants; keyset pagination under concurrent insert.
 **Risk:** medium — first real scoped grid; the differential (EF vs RLS) agreement must hold on Sales rows.
 
-### [ ] P3 — Contacts: one-account rule, departed-not-deleted, scope inheritance
+### [x] P3 — Contacts: one-account rule, departed-not-deleted, scope inheritance
 **Touches:** `Sales/Domain/Contact.cs`, config + migration for `sales.contacts` (+ RLS), service, `Aperture.Api/Endpoints/ContactEndpoints.cs`, tests.
 **Done when:** a contact belongs to exactly one account; create denormalizes owner/team/region/account from the parent account; `depart` marks the row without deleting; grid under `contacts.read`.
 **Tests:** edges 6, 7; departed excluded from active lists but present in history; scope inheritance visible through a `Region`/`Account` grant; tenant isolation.
