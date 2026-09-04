@@ -130,6 +130,86 @@ internal sealed class DealService : IDealService
         return new DealLineAddResult(DealLineAddStatus.Added, ToView(deal));
     }
 
+    public async Task<DealTransitionResponse> TransitionAsync(
+        DataScopeSet scopes,
+        Guid dealId,
+        TransitionDealRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(scopes);
+        ArgumentNullException.ThrowIfNull(request);
+
+        // Loaded whole (with its lines, which the won guard reads and the quoted transition freezes) through
+        // the scope predicate: a deal outside the caller's scope cannot be moved, and is reported as
+        // not-found rather than forbidden — the non-leaking deny the rest of the service uses.
+        var deal = await _db.Deals
+            .Include(d => d.Lines)
+            .WhereInScope(scopes)
+            .SingleOrDefaultAsync(d => d.Id == dealId, cancellationToken)
+            .ConfigureAwait(false);
+
+        if (deal is null)
+        {
+            return new DealTransitionResponse(
+                DealTransitionOutcome.DealNotFound, null, string.Empty, request.TargetStage);
+        }
+
+        // The client's optimistic pre-check: if they name a version and the row has moved on since, their
+        // request is against a stale view — reject before touching state. The xmin token below then guards
+        // the remaining window to commit (edge 15).
+        if (request.ExpectedVersion is { } expected && deal.Version != expected)
+        {
+            return new DealTransitionResponse(
+                DealTransitionOutcome.Conflict, ToView(deal), deal.Stage, request.TargetStage);
+        }
+
+        var input = new DealTransitionInput(request.Reason, request.PriceListVersion);
+        var result = deal.Transition(request.TargetStage, input);
+        if (!result.Succeeded)
+        {
+            // An illegal edge or a failed rule guard: nothing was mutated. Map the machine's verdict to the
+            // application outcome and return without saving.
+            return new DealTransitionResponse(
+                Map(result.Status), null, result.FromStage, result.ToStage);
+        }
+
+        try
+        {
+            await _db.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            // Two writers transitioned the same deal in the same window; this one lost the xmin check. Report
+            // the conflict with the current persisted state so the caller can re-apply against it (edge 15).
+            var current = await _db.Deals
+                .AsNoTracking()
+                .Include(d => d.Lines)
+                .WhereInScope(scopes)
+                .SingleOrDefaultAsync(d => d.Id == dealId, cancellationToken)
+                .ConfigureAwait(false);
+
+            return new DealTransitionResponse(
+                DealTransitionOutcome.Conflict,
+                current is null ? null : ToView(current),
+                result.FromStage,
+                result.ToStage);
+        }
+
+        return new DealTransitionResponse(
+            DealTransitionOutcome.Transitioned, ToView(deal), result.FromStage, result.ToStage);
+    }
+
+    private static DealTransitionOutcome Map(DealTransitionStatus status) => status switch
+    {
+        DealTransitionStatus.IllegalTransition => DealTransitionOutcome.IllegalTransition,
+        DealTransitionStatus.NoPricedLine => DealTransitionOutcome.NoPricedLine,
+        DealTransitionStatus.ReasonRequired => DealTransitionOutcome.ReasonRequired,
+        DealTransitionStatus.PriceListVersionRequired => DealTransitionOutcome.PriceListVersionRequired,
+        // Transitioned is handled before this is reached; a value outside the domain enum is a bug, not an
+        // input — fail loudly rather than invent an outcome.
+        _ => throw new ArgumentOutOfRangeException(nameof(status), status, "Not a transition failure."),
+    };
+
     public async Task<DealsPage> ListAsync(
         DataScopeSet scopes,
         int limit,

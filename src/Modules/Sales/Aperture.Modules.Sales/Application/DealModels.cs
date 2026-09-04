@@ -76,6 +76,58 @@ public sealed record DealLineAddResult(DealLineAddStatus Status, DealView? Deal)
 public sealed record DealsPage(IReadOnlyList<DealView> Items, string? NextCursor);
 
 /// <summary>
+/// What a caller supplies to move a deal along its lifecycle: the target stage, an optional reason (required
+/// only for <c>lost</c>, rule 4) and an optional price-list version (required only for <c>quoted</c>,
+/// rule 2). <see cref="ExpectedVersion"/> is the deal's <c>xmin</c> as the caller last read it; when
+/// supplied, a stale value is rejected up front, and the EF concurrency token then guards the window to
+/// commit — either way a concurrent transition loses rather than clobbers (edge 15). None of the five scope
+/// columns appears here: a transition never changes who owns a deal.
+/// </summary>
+public sealed record TransitionDealRequest(
+    string TargetStage,
+    string? Reason = null,
+    string? PriceListVersion = null,
+    uint? ExpectedVersion = null);
+
+public enum DealTransitionOutcome
+{
+    /// <summary>The deal advanced and was saved.</summary>
+    Transitioned = 1,
+
+    /// <summary>No deal with that id is visible to the caller's tenant and scope.</summary>
+    DealNotFound = 2,
+
+    /// <summary>The deal moved on between the caller's read and this write (or a stale
+    /// <see cref="TransitionDealRequest.ExpectedVersion"/> was supplied); the returned
+    /// <see cref="DealTransitionResponse.Deal"/> carries the current state.</summary>
+    Conflict = 3,
+
+    /// <summary>The requested edge does not exist — an unknown stage, a non-adjacent jump, or a move out of a
+    /// terminal state (edge 12).</summary>
+    IllegalTransition = 4,
+
+    /// <summary>Rule 1: <c>won</c> requested with no priced line.</summary>
+    NoPricedLine = 5,
+
+    /// <summary>Rule 4: <c>lost</c> requested with no reason code.</summary>
+    ReasonRequired = 6,
+
+    /// <summary>Rule 2: <c>quoted</c> requested with no price-list version to freeze.</summary>
+    PriceListVersionRequired = 7,
+}
+
+/// <summary>
+/// The outcome of a transition. On success the <see cref="Deal"/> is the advanced deal; on a conflict it is
+/// the current persisted state the caller must re-apply against; on the other rejections it is null. The
+/// stages moved between are always present so the endpoint can audit the attempt.
+/// </summary>
+public sealed record DealTransitionResponse(
+    DealTransitionOutcome Outcome,
+    DealView? Deal,
+    string FromStage,
+    string ToStage);
+
+/// <summary>
 /// The Sales module's public surface for deals. The implementation is internal; the endpoint host reaches
 /// it only through this interface (ARCHITECTURE.md §1). Every method takes the caller's resolved scopes
 /// explicitly — the service never invents them. P4 exposes creation, single-deal read, add-line and the
@@ -114,5 +166,18 @@ public interface IDealService
         DataScopeSet scopes,
         int limit,
         string? cursor,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Moves the deal named by <paramref name="dealId"/> along its lifecycle through the one table-driven
+    /// <see cref="Domain.DealStateMachine"/>: an illegal edge, a terminal state, or a failed rule guard is a
+    /// domain outcome on the returned <see cref="DealTransitionResponse"/>, and a concurrent transition
+    /// (<c>xmin</c>) is reported as <see cref="DealTransitionOutcome.Conflict"/> with the current state. The
+    /// deal is loaded and saved through the caller's scope, so a deal the caller cannot see cannot be moved.
+    /// </summary>
+    Task<DealTransitionResponse> TransitionAsync(
+        DataScopeSet scopes,
+        Guid dealId,
+        TransitionDealRequest request,
         CancellationToken cancellationToken = default);
 }

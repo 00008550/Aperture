@@ -57,6 +57,17 @@ public sealed class DealLine : ITenantOwned
     /// P5's <c>quoted</c> transition freezes it onto the line (DOMAIN.md §2 rule 2).</summary>
     public string? PriceListVersion { get; private set; }
 
+    /// <summary>
+    /// Freezes the price-list version this line was priced against, as part of the deal's move to
+    /// <c>quoted</c> (DOMAIN.md §2 rule 2). Internal and driven only by <see cref="Deal.Transition"/> — a
+    /// line never freezes itself; the aggregate root freezes all of its lines together so a later price
+    /// change cannot alter an outstanding quote.
+    /// </summary>
+    internal void Freeze(string priceListVersion)
+    {
+        PriceListVersion = Require(priceListVersion, nameof(priceListVersion));
+    }
+
     private static string Require(string value, string paramName) =>
         string.IsNullOrWhiteSpace(value)
             ? throw new ArgumentException($"{paramName} is required.", paramName)

@@ -1,0 +1,109 @@
+namespace Aperture.Modules.Sales.Domain;
+
+/// <summary>
+/// The one place the deal lifecycle is written down (DOMAIN.md §2, ARCHITECTURE.md §5): a table of the
+/// legal <c>(from, to)</c> edges, each with the guard that must hold before that edge may be taken. Any
+/// pair not in the table is illegal — which is also how the terminal states enforce themselves, since
+/// <c>won</c> and <c>lost</c> appear only as targets and never as sources, so no edge leaves them. There
+/// is no per-stage <c>if</c> ladder anywhere else; a transition that is not in this table is a domain
+/// error, not a forgotten branch.
+/// <para>
+/// The machine only <em>decides</em>: <see cref="Evaluate"/> returns whether an edge is legal and, if so,
+/// whether its guard passes. Applying the effect of a legal, guarded transition (advancing the stage,
+/// freezing the price-list version, recording the lost reason) belongs to <see cref="Deal.Transition"/>,
+/// which owns the aggregate's state — the machine never mutates a deal.
+/// </para>
+/// </summary>
+public static class DealStateMachine
+{
+    // The legal edges and their guards. The linear pipeline of DOMAIN.md §2
+    // (new → qualified → quoted → negotiation → won | lost); every other pair is absent and therefore
+    // illegal. won/lost are targets only, so they are terminal by construction — no key has them as a source.
+    private static readonly IReadOnlyDictionary<(string From, string To), Func<Deal, DealTransitionInput, DealTransitionStatus?>> Edges =
+        new Dictionary<(string, string), Func<Deal, DealTransitionInput, DealTransitionStatus?>>
+        {
+            [(Deal.Stages.New, Deal.Stages.Qualified)] = static (_, _) => null,
+
+            // Rule 2: moving to quoted freezes the price-list version used, so a later price change cannot
+            // alter an outstanding quote. The version must be supplied to be frozen.
+            [(Deal.Stages.Qualified, Deal.Stages.Quoted)] = static (_, input) =>
+                string.IsNullOrWhiteSpace(input.PriceListVersion)
+                    ? DealTransitionStatus.PriceListVersionRequired
+                    : null,
+
+            [(Deal.Stages.Quoted, Deal.Stages.Negotiation)] = static (_, _) => null,
+
+            // Rule 1: won requires at least one line with a price AND a quantity.
+            [(Deal.Stages.Negotiation, Deal.Stages.Won)] = static (deal, _) =>
+                deal.Lines.Any(l => l.UnitPrice > 0m && l.Quantity > 0)
+                    ? null
+                    : DealTransitionStatus.NoPricedLine,
+
+            // Rule 4: lost requires a reason code ("no reason" was the most expensive missing field).
+            [(Deal.Stages.Negotiation, Deal.Stages.Lost)] = static (_, input) =>
+                string.IsNullOrWhiteSpace(input.Reason)
+                    ? DealTransitionStatus.ReasonRequired
+                    : null,
+        };
+
+    /// <summary>Whether <paramref name="to"/> is a legal edge out of <paramref name="from"/>, ignoring
+    /// guards. Terminal states have no legal edges, so this is <c>false</c> for any source of <c>won</c> or
+    /// <c>lost</c>.</summary>
+    public static bool IsLegal(string from, string to) => Edges.ContainsKey((from, to));
+
+    /// <summary>
+    /// Decides whether <paramref name="deal"/> may move to <paramref name="to"/>: <see cref="DealTransitionStatus.IllegalTransition"/>
+    /// if there is no such edge (an unknown target stage, a non-adjacent jump, or any move out of a terminal
+    /// state), otherwise the guard's verdict — a failing <see cref="DealTransitionStatus"/> or
+    /// <see cref="DealTransitionStatus.Transitioned"/> when the guard passes. The machine does not change the
+    /// deal; the caller applies the effect only when this returns <see cref="DealTransitionStatus.Transitioned"/>.
+    /// </summary>
+    public static DealTransitionStatus Evaluate(Deal deal, string to, DealTransitionInput input)
+    {
+        ArgumentNullException.ThrowIfNull(deal);
+
+        return Edges.TryGetValue((deal.Stage, to), out var guard)
+            ? guard(deal, input) ?? DealTransitionStatus.Transitioned
+            : DealTransitionStatus.IllegalTransition;
+    }
+}
+
+/// <summary>
+/// What a transition needs beyond the target stage: the lost reason code (rule 4) and the price-list version
+/// to freeze at <c>quoted</c> (rule 2). Both are optional in general and required only by the specific edge
+/// whose guard reads them — a null <see cref="Reason"/> is fine for every edge except the one into
+/// <c>lost</c>, and a null <see cref="PriceListVersion"/> for every edge except the one into <c>quoted</c>.
+/// </summary>
+public sealed record DealTransitionInput(string? Reason = null, string? PriceListVersion = null);
+
+/// <summary>
+/// The verdict on a transition attempt. Every failing value is a domain outcome the caller maps to a status
+/// code (illegal/terminal and the three guard failures are 422; concurrency is a separate 409 raised at the
+/// persistence boundary, not here) — none of them is an exception, because an illegal transition is an
+/// expected answer, not a bug.
+/// </summary>
+public enum DealTransitionStatus
+{
+    /// <summary>The edge is legal and its guard passed; the deal may advance.</summary>
+    Transitioned = 1,
+
+    /// <summary>No legal edge from the current stage to the requested one — an unknown stage, a non-adjacent
+    /// jump, or any move out of the terminal <c>won</c>/<c>lost</c>.</summary>
+    IllegalTransition = 2,
+
+    /// <summary>Rule 1: <c>won</c> was requested but no line has both a price and a quantity.</summary>
+    NoPricedLine = 3,
+
+    /// <summary>Rule 4: <c>lost</c> was requested with no reason code.</summary>
+    ReasonRequired = 4,
+
+    /// <summary>Rule 2: <c>quoted</c> was requested with no price-list version to freeze.</summary>
+    PriceListVersionRequired = 5,
+}
+
+/// <summary>The outcome of <see cref="Deal.Transition"/>: the machine's verdict plus the stages it moved
+/// between, so a caller can audit "from → to" whether or not the move was allowed.</summary>
+public readonly record struct DealTransitionResult(DealTransitionStatus Status, string FromStage, string ToStage)
+{
+    public bool Succeeded => Status == DealTransitionStatus.Transitioned;
+}

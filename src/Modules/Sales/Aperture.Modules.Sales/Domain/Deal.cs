@@ -150,6 +150,52 @@ public sealed class Deal : ITenantOwned, IScopedResource
     }
 
     /// <summary>
+    /// Moves the deal to <paramref name="to"/> if the <see cref="DealStateMachine"/> allows it. The machine
+    /// decides — is this a legal edge, and does its guard pass — and only on a
+    /// <see cref="DealTransitionStatus.Transitioned"/> verdict does the deal apply the effect: the stage
+    /// advances, a move to <c>quoted</c> freezes the price-list version onto the deal and every line
+    /// (rule 2), and a move to <c>lost</c> records the reason (rule 4). An illegal edge (including any move
+    /// out of the terminal <c>won</c>/<c>lost</c>) or a failed guard changes nothing and is reported through
+    /// the returned <see cref="DealTransitionResult"/> — a domain outcome, never an exception. The result
+    /// always carries the from/to stages so the caller can audit the attempt whether or not it succeeded.
+    /// </summary>
+    public DealTransitionResult Transition(string to, DealTransitionInput input)
+    {
+        ArgumentNullException.ThrowIfNull(input);
+
+        var from = Stage;
+        var status = DealStateMachine.Evaluate(this, to, input);
+        if (status != DealTransitionStatus.Transitioned)
+        {
+            return new DealTransitionResult(status, from, to);
+        }
+
+        // The effect of a legal, guarded transition. Only the aggregate root touches its own state and its
+        // lines'; the machine decided, this applies.
+        switch (to)
+        {
+            case Stages.Quoted:
+                // Freeze the version onto the deal and every line, so a later price-list change cannot alter
+                // this outstanding quote (rule 2). Trimmed non-empty is guaranteed by the guard.
+                var frozen = input.PriceListVersion!.Trim();
+                FrozenPriceListVersion = frozen;
+                foreach (var line in _lines)
+                {
+                    line.Freeze(frozen);
+                }
+
+                break;
+
+            case Stages.Lost:
+                LostReasonCode = input.Reason!.Trim();
+                break;
+        }
+
+        Stage = to;
+        return new DealTransitionResult(DealTransitionStatus.Transitioned, from, to);
+    }
+
+    /// <summary>
     /// Re-stamps the inherited scope columns (owner, team, region) from <paramref name="account"/> after
     /// that account is reassigned (edge 8). <see cref="TenantId"/> and <see cref="AccountId"/> are
     /// immutable and deliberately not touched — a deal does not change tenant or parent, only the owner /
