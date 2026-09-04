@@ -114,6 +114,12 @@ public enum DealTransitionOutcome
 
     /// <summary>Rule 2: <c>quoted</c> requested with no price-list version to freeze.</summary>
     PriceListVersionRequired = 7,
+
+    /// <summary>Rule 3: the move to <c>won</c> carried a discount above the tenant threshold and no approval
+    /// on record. The deal did NOT advance — it stays in <c>negotiation</c> with a pending approval recorded
+    /// (<see cref="DealTransitionResponse.Deal"/> carries <see cref="DealView.PendingApproval"/> set). A lead
+    /// with <c>deals.discount.approve</c> must clear it before a retry can win.</summary>
+    PendingApproval = 8,
 }
 
 /// <summary>
@@ -126,6 +132,36 @@ public sealed record DealTransitionResponse(
     DealView? Deal,
     string FromStage,
     string ToStage);
+
+/// <summary>
+/// What a lead supplies to clear a deal's pending discount approval (DOMAIN.md §2 rule 3): the
+/// <see cref="Reason"/> is the <em>why</em> the endpoint audits alongside the approver's identity, and an
+/// optional <see cref="ExpectedVersion"/> guards against approving a deal that has moved on since the lead
+/// read it (the same <c>xmin</c> optimistic check the transition path uses).
+/// </summary>
+public sealed record ApproveDiscountRequest(string Reason, uint? ExpectedVersion = null);
+
+public enum DealDiscountApprovalOutcome
+{
+    /// <summary>The pending approval was cleared; the deal may now advance to <c>won</c>.</summary>
+    Approved = 1,
+
+    /// <summary>No deal with that id is visible to the caller's tenant and scope (fail-closed: an empty scope
+    /// set or an out-of-scope deal is indistinguishable from a missing one).</summary>
+    DealNotFound = 2,
+
+    /// <summary>The deal has no discount approval outstanding — there is nothing to clear.</summary>
+    NotPending = 3,
+
+    /// <summary>The deal moved on between the lead's read and this write (a stale
+    /// <see cref="ApproveDiscountRequest.ExpectedVersion"/> or a concurrent <c>xmin</c> loss); the returned
+    /// <see cref="DealDiscountApprovalResult.Deal"/> carries the current state.</summary>
+    Conflict = 4,
+}
+
+/// <summary>The outcome of clearing a pending discount approval, with the deal's current state on success or
+/// conflict (null when the deal was not found or was not pending returns its unchanged view).</summary>
+public sealed record DealDiscountApprovalResult(DealDiscountApprovalOutcome Outcome, DealView? Deal);
 
 /// <summary>
 /// The Sales module's public surface for deals. The implementation is internal; the endpoint host reaches
@@ -179,5 +215,19 @@ public interface IDealService
         DataScopeSet scopes,
         Guid dealId,
         TransitionDealRequest request,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Clears the pending discount approval on the deal named by <paramref name="dealId"/> (DOMAIN.md §2
+    /// rule 3), if the caller's tenant and scope admit it and the deal actually has an approval outstanding.
+    /// Authorization for <em>who may approve</em> is enforced above this by the <c>deals.discount.approve</c>
+    /// policy on the endpoint; this method still loads the deal through the caller's scope, so a deal the
+    /// caller cannot see cannot be approved (an empty scope set denies). The approver's identity and reason
+    /// are audited by the composition root, not stored on the deal.
+    /// </summary>
+    Task<DealDiscountApprovalResult> ApproveDiscountAsync(
+        DataScopeSet scopes,
+        Guid dealId,
+        ApproveDiscountRequest request,
         CancellationToken cancellationToken = default);
 }

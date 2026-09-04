@@ -43,6 +43,10 @@ public static class DealEndpoints
             .RequirePermission(Permissions.DealsWrite)
             .WithName("TransitionDeal");
 
+        app.MapPost("/api/deals/{id:guid}/approve-discount", ApproveDiscount)
+            .RequirePermission(Permissions.DealsDiscountApprove)
+            .WithName("ApproveDiscount");
+
         return app;
     }
 
@@ -141,9 +145,14 @@ public static class DealEndpoints
                 new AuditEntry(AuditCategory.Mutation, AuditActor.KindFor(http), principal.UserId)
                 {
                     Action = $"POST /api/deals/{id}/transition {result.FromStage}->{result.ToStage}",
-                    Reason = result.Outcome == DealTransitionOutcome.Transitioned
-                        ? request.Reason
-                        : $"rejected: {result.Outcome}",
+                    Reason = result.Outcome switch
+                    {
+                        DealTransitionOutcome.Transitioned => request.Reason,
+                        // Rule 3: the move held for a lead's approval — a real state change (pending recorded),
+                        // audited as such rather than as a rejection.
+                        DealTransitionOutcome.PendingApproval => "discount over threshold: pending approval",
+                        _ => $"rejected: {result.Outcome}",
+                    },
                     ScopeDecision = principal.Scopes.IsEmpty ? "no scopes" : "scoped",
                     CorrelationId = Activity.Current?.Id ?? http.TraceIdentifier,
                 },
@@ -153,6 +162,10 @@ public static class DealEndpoints
         return result.Outcome switch
         {
             DealTransitionOutcome.Transitioned => Results.Ok(result.Deal),
+            // Rule 3: an over-threshold discount held the deal in negotiation with a pending approval. This is
+            // an expected, successful outcome — 200 with the deal (PendingApproval set) so the caller can
+            // route it to a lead; not an error the client should retry differently.
+            DealTransitionOutcome.PendingApproval => Results.Ok(result.Deal),
             DealTransitionOutcome.DealNotFound => Results.NotFound(),
             // The optimistic-concurrency loss: 409 with the current state so the caller re-applies (edge 15).
             DealTransitionOutcome.Conflict => Results.Conflict(result.Deal),
@@ -166,6 +179,58 @@ public static class DealEndpoints
             DealTransitionOutcome.PriceListVersionRequired => Results.UnprocessableEntity(
                 new { error = "Moving a deal to quoted requires a price-list version to freeze." }),
             _ => Results.Problem("Unexpected transition outcome."),
+        };
+    }
+
+    private static async Task<IResult> ApproveDiscount(
+        HttpContext http,
+        Guid id,
+        ApproveDiscountRequest request,
+        IDealService deals,
+        IAuditTrail audit,
+        CancellationToken cancellationToken)
+    {
+        var principal = http.GetAccessPrincipal();
+
+        // The why is required — an approval with no recorded reason is exactly the "no reason" gap DOMAIN.md
+        // warns about for lost deals. Reject before touching state.
+        if (string.IsNullOrWhiteSpace(request.Reason))
+        {
+            return Results.BadRequest(new { error = "A discount approval requires a reason." });
+        }
+
+        // Who may approve is enforced above by the deals.discount.approve policy (a caller without it never
+        // reaches here — 403). The deal is still loaded through the caller's scope inside the service, so a
+        // deal they cannot see cannot be approved.
+        var result = await deals.ApproveDiscountAsync(principal.Scopes, id, request, cancellationToken);
+
+        // Audit only the state-changing outcome (who + why), the same host-side seam the transitions use:
+        // Access owns the audit schema and Sales cannot reach across the §1 boundary to write it, so the
+        // composition root records it after the Sales write settles. Not-found, not-pending and conflict
+        // changed nothing and are not recorded.
+        if (result.Outcome == DealDiscountApprovalOutcome.Approved)
+        {
+            await audit.RecordAsync(
+                new AuditEntry(AuditCategory.Mutation, AuditActor.KindFor(http), principal.UserId)
+                {
+                    Action = $"POST /api/deals/{id}/approve-discount",
+                    Reason = request.Reason,
+                    ScopeDecision = principal.Scopes.IsEmpty ? "no scopes" : "scoped",
+                    CorrelationId = Activity.Current?.Id ?? http.TraceIdentifier,
+                },
+                cancellationToken);
+        }
+
+        return result.Outcome switch
+        {
+            DealDiscountApprovalOutcome.Approved => Results.Ok(result.Deal),
+            DealDiscountApprovalOutcome.DealNotFound => Results.NotFound(),
+            // Nothing to approve: the deal has no pending approval outstanding.
+            DealDiscountApprovalOutcome.NotPending => Results.Conflict(
+                new { error = "This deal has no pending discount approval." }),
+            // Lost the optimistic-concurrency check: 409 with the current state so the lead re-reads (edge 15).
+            DealDiscountApprovalOutcome.Conflict => Results.Conflict(result.Deal),
+            _ => Results.Problem("Unexpected approval outcome."),
         };
     }
 }

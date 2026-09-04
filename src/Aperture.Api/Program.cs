@@ -14,7 +14,13 @@ var ownerConnectionString =
     ?? "Host=localhost;Port=5433;Database=aperture;Username=aperture;Password=aperture";
 
 builder.Services.AddAccessModule(ownerConnectionString);
-builder.Services.AddSalesModule(ownerConnectionString);
+
+// The tenant-wide discount approval threshold (DOMAIN.md §2 rule 3, open question 2): the percent above
+// which a deal must have a lead's approval to be won. A single configurable value for 002; absent config
+// falls back to the module default.
+var discountApprovalThresholdPct =
+    builder.Configuration.GetValue<decimal?>("Sales:DiscountApprovalThresholdPct") ?? 20m;
+builder.Services.AddSalesModule(ownerConnectionString, discountApprovalThresholdPct);
 
 // The raw-SQL read path (009), wired here for the first time — 002 is its first consumer. The reader
 // connects as the least-privilege `aperture_reader` role that the row-security policies bind to, over
