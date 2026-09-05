@@ -1,5 +1,6 @@
 import { ApiError } from './api';
 import { clearAccessToken, useAccessToken, useSignOutReason } from './auth';
+import { BlockField } from './field/BlockField';
 import { Navigation } from './Navigation';
 import { SessionPanels } from './SessionPanels';
 import { SignIn } from './SignIn';
@@ -21,11 +22,20 @@ export default function App() {
   // half-rendered shell. There is no state in which the console shows navigation without a
   // session behind it.
   if (token === null) {
-    return <SignIn {...(signOutReason ? { message: signOutReason } : {})} />;
+    // P1 temporary demo mount: the living field renders behind the sign-in surface too. P2 moves
+    // the field into a dedicated `app/Shell.tsx` layering layer.
+    return (
+      <>
+        <BlockField />
+        <SignIn {...(signOutReason ? { message: signOutReason } : {})} />
+      </>
+    );
   }
 
   return (
-    <div className="shell">
+    <>
+      <BlockField />
+      <div className="shell">
       <aside className="side">
         <div className="brand">
           Aperture
@@ -59,6 +69,7 @@ export default function App() {
 
         {data && <SessionPanels session={data} />}
       </main>
-    </div>
+      </div>
+    </>
   );
 }
