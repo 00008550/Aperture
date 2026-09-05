@@ -7,6 +7,18 @@
   --accent: #4c8dff;
   --warn: #f0a04b;
   --ok: #4bd18c;
+
+  /* Layer tiers: the reactive field sits behind the content shell. P2 restructures these into a
+     full light+dark token system; P1 introduces the names the field and shell consume. */
+  --layer-field: 0;
+  --layer-content: 1;
+
+  /* Field tokens — the block-field reads its colours from here so it is correct in whichever
+     theme is active. Dark values today; P2 adds the light set alongside them. */
+  --field-block: rgba(76, 141, 255, 0.05);
+  --field-block-active: rgba(76, 141, 255, 0.30);
+  --field-pulse: rgba(120, 180, 255, 0.60);
+
   color-scheme: dark;
 }
 * { box-sizing: border-box; }
@@ -16,8 +28,21 @@ body {
   color: var(--text);
   font: 14px/1.55 ui-sans-serif, system-ui, "Segoe UI", sans-serif;
 }
-.shell { display: grid; grid-template-columns: 232px 1fr; min-height: 100vh; }
-.side { border-right: 1px solid var(--line); padding: 20px 16px; background: var(--panel); }
+/* The reactive block-field: a fixed, full-viewport canvas pinned behind the content. It never
+   captures pointer events (the shell above stays fully interactive) and is aria-hidden. */
+.field {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: var(--layer-field);
+  pointer-events: none;
+  display: block;
+}
+.shell { position: relative; z-index: var(--layer-content); display: grid; grid-template-columns: 232px 1fr; min-height: 100vh; }
+/* The shell floats on the field: let the field breathe through the main content area. */
+.shell main { background: transparent; }
+.side { border-right: 1px solid var(--line); padding: 20px 16px; background: color-mix(in srgb, var(--panel) 90%, transparent); }
 .brand { font-weight: 650; letter-spacing: .02em; margin-bottom: 22px; }
 .brand small { display: block; color: var(--muted); font-weight: 400; letter-spacing: 0; }
 nav a { display: block; padding: 7px 10px; border-radius: 6px; color: var(--muted); text-decoration: none; }
@@ -27,7 +52,7 @@ main { padding: 28px 32px; }
 h1 { font-size: 19px; margin: 0 0 4px; }
 .sub { color: var(--muted); margin: 0 0 24px; }
 .grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); }
-.card { border: 1px solid var(--line); border-radius: 9px; padding: 14px 16px; background: var(--panel); }
+.card { border: 1px solid var(--line); border-radius: 9px; padding: 14px 16px; background: color-mix(in srgb, var(--panel) 88%, transparent); backdrop-filter: blur(6px); }
 .card h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .07em; color: var(--muted); margin: 0 0 8px; }
 .mono { font-family: ui-monospace, "Cascadia Mono", monospace; font-size: 12px; }
 .pill { display: inline-block; padding: 1px 8px; border-radius: 999px; border: 1px solid var(--line); margin: 2px 4px 2px 0; font-size: 12px; }
