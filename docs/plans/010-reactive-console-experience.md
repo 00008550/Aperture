@@ -1,6 +1,6 @@
 # 010 — Reactive console: a living Sales surface
 
-Status: approved         <!-- draft → approved → in-progress → done -->
+Status: in-progress      <!-- draft → approved → in-progress → done -->
 Roadmap: ARCHITECTURE.md §13 — item 010 (Reactive console: a living Sales surface). The §13 row now exists (user-approved additive edit, 2026-09-05); §11 (Frontend) governs the invariants this plan must honour.
 Measured: 2026-09-05 — see *Ground truth* for the exact `scripts/measure.sh endpoints` output and the frontend inventory this plan was written against.
 
@@ -86,6 +86,42 @@ animated with restraint; nothing is inert, nothing shouts. DFII ≈ 12 (Impact 4
 Performance 3, Consistency-risk 1): the risk is letting motion fight legibility — controlled by
 keeping the field strictly behind a `z-index` layer, pausing it when a modal/grid has focus, and
 keeping every micro-interaction low-amplitude and theme-token-driven.
+
+### Design direction — "Aurora Glass" (locked 2026-09-05)
+
+The user ran a design spike and **chose "Aurora Glass"** over two alternatives ("Bento Ops" and
+"Kinetic Paper"). This is the **locked visual direction** — the builder implements exactly this,
+not a fresh interpretation of "quiet but alive". The user approved the direction and **explicitly
+deferred further polish** ("later we can polish and make better"): the direction is fixed, but
+fine-tuning (pane size, bend strength, reflection intensity, idle shimmer) happens *during the
+build*, not as a re-decision.
+
+**Canonical visual reference:** <https://claude.ai/code/artifact/7766ad20-8691-420f-a98e-02af93eab177>
+— cite and match this artifact. Note: it is a design spike using sample data on a single screen,
+**not production code** — match its look and feel, not its structure.
+
+The spec:
+
+- **Feel:** Linear/Attio-calm and premium; hierarchy comes from **depth and light**, not heavy
+  borders.
+- **Panels:** refined **frosted glass** — a translucent surface with `backdrop-blur`, subtle
+  hairline borders, a soft shadow, and a **large radius (~16px)**.
+- **Accent:** **teal + indigo.** Light theme `--accent: #28b6a4`, `--accent-2: #6f83f5`; dark theme
+  `--accent: #41d6c3`, `--accent-2: #8a9bff`. Neutrals are **cool-slate** (a chosen slate scale, not
+  default grey). Semantic good/warn/bad stay **separate from the accent**.
+- **Type:** **Bricolage Grotesque** (display) + **IBM Plex Sans** (body) + **IBM Plex Mono**
+  (data/numerals), all via Google Fonts, each with a **real fallback stack**.
+- **Themes:** both **light and dark are first-class** — this aligns with the theme-system decision
+  already recorded below and built in P2; cross-reference it rather than duplicating it.
+- **The reactive field (Aurora Glass form):** the field is **not small dots** but **big connected
+  glass panes** — a grid of **~46px rounded tiles** separated by **thin seams**, so the whole reads
+  as one continuous glass surface. Near the pointer the panes **bulge / lean / refract toward the
+  cursor**, catch a **diagonal reflection streak clipped inside each pane**, and **light their edges
+  as they wake**, settling calmly at rest; a **click fires an impulse ripple** across the panes.
+  Motion **eases in** — quiet at rest, lively near the cursor ("quiet but alive"). Still **Canvas 2D
+  + a single rAF loop**, and **reduced-motion and tab-hide safe** exactly as P1 already requires.
+  **010-P1 shipped the dot version** (PR #35); upgrading the field to glass panes is an **explicit
+  follow-up folded into P2** (see P2 below) and is part of the 010 build, tuned/polished later.
 
 | Structure | Class | Reason |
 |---|---|---|
@@ -202,11 +238,13 @@ Contacts, Deals (grid + detail + lifecycle), all floating on the block-field, al
 **Done when:** a Canvas 2D block-field renders behind the current session UI; blocks flow *in and out* as the pointer moves across them; a click emits a pulse that ripples through the blocks and decays; the field runs at 60fps for the default block count; `data-field-state` reflects `animating` and the loop pauses on tab-hide. The field's motion is **quiet-but-alive-maximal**: low-amplitude, restrained, never grainy/noisy, yet continuously reactive. The field reads its colours from the theme tokens (P2 introduces the token restructure; P1 introduces field-token names it consumes) so it is **correct in both light and dark themes**. Browser-verified via `preview_start` (console, 5173) in both themes.
 **Tests:** pure `blockField.ts` unit tests — grid geometry for a viewport, pointer-proximity flow function, pulse-decay to zero in bounded time (edge 3), tab-hidden pause (edge 4). No pixel assertions.
 **Risk:** medium
+**Follow-up (Aurora Glass, folded into P2):** P1 shipped as small **dots** (PR #35, merged). The locked "Aurora Glass" direction (see *Design direction*, above) upgrades the field to **big connected glass panes** — ~46px rounded tiles with thin seams reading as one glass surface; panes bulge/lean/refract toward the cursor, catch a diagonal reflection streak clipped inside each pane, light their edges as they wake, and a click fires an impulse ripple; motion eases in (quiet at rest, lively near the cursor). This upgrade **must land as part of the 010 build** and is scheduled in **P2** (tokens/theme portion), still Canvas 2D + single rAF loop, reduced-motion and tab-hide safe as here; pane size / bend strength / reflection / idle shimmer are tuned during the build, not re-decided.
 
-### [ ] P2 — Design tokens + theme system + shell layering + reduced-motion (cross-cutting foundation)
-**Touches:** `styles.css` (restructure into light + dark token sets), new `app/theme.ts` (theme state + persistence, e.g. `localStorage`), a theme toggle control in the shell/sidebar, `field/BlockField.tsx` (consume theme tokens), new `app/Shell.tsx`, `App.tsx`, tests.
-**Done when:** tokens are restructured so **light and dark are both first-class**; a **user-facing theme toggle** switches between them and the choice is **persisted** across reloads (defaulting from `prefers-color-scheme`); every surface — including the block-field — reads its colours from the theme tokens and is correct in both themes; the field sits on a dedicated `z-index` tier behind glass content panels; the existing sidebar + session panels render above it unharmed in both themes; `prefers-reduced-motion: reduce` yields a single static frame with no rAF loop (`data-field-state="reduced"`), and a canvas-init failure degrades to `data-field-state="degraded"` with the app fully usable. **Correct in both light and dark**, reduced-motion, and degrade become a **Done-when on every later visual portion**.
-**Tests:** theme toggle switches token set and persists across a remount; default derives from `prefers-color-scheme`; reduced-motion branch renders no loop (edge 1); degraded branch renders content (edge 2); the block-field reads theme tokens (assert the token source, not pixels); `App.test.tsx` still green.
+### [ ] P2 — Aurora Glass tokens + theme system + shell layering + reduced-motion + glass-pane field upgrade (cross-cutting foundation)
+**Touches:** `styles.css` (restructure into the **Aurora Glass** light + dark token sets), new `app/theme.ts` (theme state + persistence, e.g. `localStorage`), a theme toggle control in the shell/sidebar, font loading (Bricolage Grotesque / IBM Plex Sans / IBM Plex Mono via Google Fonts with fallback stacks), `field/BlockField.tsx` + `field/blockField.ts` (consume theme tokens **and upgrade the field from dots to connected glass panes**), new `app/Shell.tsx`, `App.tsx`, tests.
+**Design direction (locked):** implement the **Aurora Glass** spec (see *Design direction*, above; match the referenced artifact). Panels are **frosted glass** — translucent + `backdrop-blur`, hairline borders, soft shadow, ~16px radius; hierarchy from depth and light, not heavy borders (Linear/Attio-calm, premium).
+**Done when:** tokens are restructured into the **Aurora Glass** system so **light and dark are both first-class** — accent **teal + indigo** (light `--accent:#28b6a4` / `--accent-2:#6f83f5`; dark `--accent:#41d6c3` / `--accent-2:#8a9bff`), **cool-slate neutrals**, and semantic good/warn/bad kept separate from the accent; the type system loads **Bricolage Grotesque** (display) + **IBM Plex Sans** (body) + **IBM Plex Mono** (data/numerals) with real fallback stacks; content panels render as **frosted glass** (translucent, `backdrop-blur`, hairline border, soft shadow, ~16px radius); a **user-facing theme toggle** switches themes and the choice is **persisted** across reloads (defaulting from `prefers-color-scheme`); every surface — including the field — reads its colours from the theme tokens and is correct in both themes; the field sits on a dedicated `z-index` tier behind the glass content panels; the existing sidebar + session panels render above it unharmed in both themes. **The reactive field is upgraded from P1's dots to the Aurora Glass form** — big connected glass panes (~46px rounded tiles with thin seams reading as one glass surface) that bulge/lean/refract toward the cursor, catch a diagonal reflection streak clipped inside each pane, light their edges as they wake and settle calmly at rest, with a click firing an impulse ripple and motion easing in (quiet at rest, lively near the cursor) — still Canvas 2D + single rAF loop. `prefers-reduced-motion: reduce` yields a single static frame with no rAF loop (`data-field-state="reduced"`), and a canvas-init failure degrades to `data-field-state="degraded"` with the app fully usable. **Correct in both light and dark**, reduced-motion, and degrade become a **Done-when on every later visual portion**. Browser-verified via `preview_start` (console, 5173) in both themes. Pane size / bend strength / reflection / idle shimmer are tuned here during the build, not re-decided.
+**Tests:** theme toggle switches token set and persists across a remount; default derives from `prefers-color-scheme`; reduced-motion branch renders no loop (edge 1); degraded branch renders content (edge 2); the block-field reads theme tokens (assert the token source, not pixels); glass-pane geometry (pane grid + seam spacing) covered by pure `blockField.ts` tests, with pulse-decay (edge 3) and tab-hidden pause (edge 4) still holding after the upgrade; `App.test.tsx` still green.
 **Risk:** medium
 
 ### [ ] P3 — Data layer: typed client + query hooks (no new visuals)
