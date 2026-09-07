@@ -119,10 +119,12 @@ was never selected cannot leak through a serialization change.
   frequent event (`DOMAIN.md` §2), and optimistic retry there converts a lost update into a
   livelock under load.
 - **Idempotency** is a first-class ingress concern. Every state-changing external entry — API
-  command with an `Idempotency-Key` header, webhook, queue consumer — writes to an
-  `access.idempotency_keys` table inside the same transaction as the effect. A replay returns the
-  stored response and performs no second write. This is the direct answer to `DOMAIN.md` §5.3 and
-  §5.4.
+  command with an `Idempotency-Key` header, webhook, queue consumer — writes to a per-module
+  `<schema>.idempotency_keys` table inside the same transaction as the effect, so the key and the
+  effect commit atomically without a cross-schema transaction (§1). The table shape is identical
+  across modules; the schema is always the effect's own (e.g. `orders.idempotency_keys` for an
+  Orders command). A replay returns the stored response and performs no second write. This is the
+  direct answer to `DOMAIN.md` §5.3 and §5.4.
 - **State machines are explicit.** `Deal` and `Order` transitions live in one table-driven
   definition per aggregate, and an illegal transition is a domain error, not an `if` someone forgot.
   A delivery webhook that would move `delivered → shipped` is rejected by the machine, with the
@@ -228,12 +230,12 @@ every survey and corrects it in place. A `✅` that no measurement supports is a
 | Tenant context + fail-closed scope primitives | ✅ built | `Aperture.SharedKernel/Multitenancy`, `/Authorization` | 19 tests, `Aperture.SharedKernel.Tests` (001-P1) |
 | Permission registry | ✅ built | `Aperture.SharedKernel/Authorization/Permissions.cs` | 19 tests, `Aperture.SharedKernel.Tests` (001-P1) |
 | Permission policy provider | ✅ built | `Aperture.Api/Authorization` | 32 tests, `Aperture.Api.Tests` (001-P3) |
-| Access module: tenants, users, roles, scopes | ✅ built | `src/Modules/Access` — 9 tables in the `access` schema | 15 tests against real PostgreSQL (001-P2) |
+| Access module: tenants, users, roles, scopes | ✅ built | `src/Modules/Access` — 10 tables in the `access` schema (incl. `audit_events`, added 001-P6) | 15 tests against real PostgreSQL (001-P2); measured 2026-09-05: `schema` reports 10 access tables |
 | Authentication (JWT) + `GET /api/me` | ✅ built | `Aperture.Api/Authentication`, `Modules/Access/Authentication` | 32 tests, `Aperture.Api.Tests` (001-P3) |
 | Scope → SQL predicate (EF / `IQueryable` only) | ✅ built | `Aperture.SharedKernel/Authorization/ScopeQuerying.cs` — on `master`, PR [#17](https://github.com/00008550/Aperture/pull/17) merged 2026-08-30 (001-P4) | 23 tests assert generated SQL against real PostgreSQL |
 | Scope → SQL predicate for raw SQL / Dapper | ✅ built (009 P1–P5 merged) | `Aperture.SharedKernel/Data/ScopedConnection.cs`, `/Data/RowLevelSecurity/ScopeRlsPolicy.cs`, `/Data/ScopeSessionContext.cs`, `Authorization/ScopeSql.cs`; gate: `RawSqlIsScopedTests.cs`, `scripts/measure.sh rawsql` | measured 2026-09-03: raw SQL reaches the DB only through `ScopedConnection` as the least-privilege `aperture_reader` role; Postgres RLS re-asserts tenant + scope below the SQL string (fail-closed on unset context). The old `/**scope**/` placeholder mechanism was removed as fail-open; PR #24 was superseded by the RLS design and P3–P5 merged. Differential test proves EF `WhereInScope`, the P2 fragment, and the RLS policy select the identical id set. `measure.sh rawsql`: 0 production call sites. **Not yet wired into API DI — first consumer is 002.** |
 | Dapper (as a dependency) | ✅ present | `Directory.Packages.props`, `Aperture.SharedKernel/Data` | measured 2026-09-03: Dapper 2.1.66 pinned centrally, referenced by exactly one project (`Aperture.SharedKernel/Data`, the sanctioned wrapper); an architecture test enforces the single reference. §4's "Dapper owns list and report queries" is now true of the read path, though no production call site exists until 002's grids |
-| Sales: accounts, contacts, deals | ☐ planned | — | 002 |
+| Sales: accounts, contacts, deals | ✅ built | `src/Modules/Sales` — 4 tables in the `sales` schema (`accounts`, `contacts`, `deals`, `deal_lines`); 13 order-agnostic routes on `accounts.*`/`contacts.*`/`deals.*` | measured 2026-09-05 (002 P1–P6 done): Sales 71 tests, Api 71; `endpoints` maps 13 Sales routes, 0 unpoliced; `permissions` shows `accounts.*`/`contacts.*`/`deals.*`/`deals.discount.approve` all enforced |
 | Orders + fulfilment state machine | ☐ planned | — | 003 |
 | Stock reservation under contention | ☐ planned | — | 003 |
 | Idempotency keys at ingress | ☐ planned | — | 003 |
@@ -243,7 +245,7 @@ every survey and corrects it in place. A `✅` that no measurement supports is a
 | Supplier feed connector | ☐ planned | — | 006 |
 | AI assistant: tool calling | ☐ planned | — | 007 |
 | RAG over timeline (pgvector) | ☐ planned | — | 007 |
-| React console shell + auth | ◐ partial | `frontend/console` | `npm run build` |
+| React console shell + auth | ◐ partial | `frontend/console` | measured 2026-09-05: `npm run build` green; token paste → `GET /api/me` session (tenant/user/permissions/scopes, empty-scope-denies surface) + permission-gated nav (disabled-not-hidden). **No data-bound screens exist behind the nav yet** — the six section links are dead in-page anchors; grids, forms and the deal lifecycle UI are planned in 010 |
 | OpenTelemetry wiring | ☐ planned | — | 008 |
 
 ## §13 Roadmap
@@ -258,3 +260,4 @@ every survey and corrects it in place. A `✅` that no measurement supports is a
 | 006 | Supplier feed connector | The first unreliable external system, exercising 004's machinery. |
 | 007 | AI assistant: tool calling, structured output, RAG | Deliberately last: it calls the endpoints, so the endpoints must exist and be correctly authorised first. Building it earlier would mean auditing it twice. |
 | 008 | OpenTelemetry, dashboards, load test | Instrument what exists rather than guessing where the spans belong. |
+| 010 | Reactive console: a living Sales surface | The API-first slices (001/002) exist; this makes them usable and gives Aperture its distinctive face. Sequenced after 002's Sales endpoints, independent of 003. |
