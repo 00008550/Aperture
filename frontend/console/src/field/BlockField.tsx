@@ -243,7 +243,14 @@ export function BlockField(): React.ReactElement {
     });
     themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
 
-    const resizeObserver = new ResizeObserver(() => resize());
+    const resizeObserver = new ResizeObserver(() => {
+      resize();
+      // `resize()` re-sizes the canvas bitmap, which clears it. Under reduced motion there is no
+      // loop to repaint on the next frame, so a resize would leave the field blank instead of the
+      // single static frame edge 1 requires — repaint it here. Never schedule the rAF loop from
+      // this path: the reduced path must stay loop-free.
+      if (reduced) draw(performance.now());
+    });
     resizeObserver.observe(canvas);
 
     return () => {

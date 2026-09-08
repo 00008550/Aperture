@@ -64,6 +64,47 @@ describe('BlockField lifecycle states (edges 1 & 2)', () => {
     expect(raf).not.toHaveBeenCalled();
   });
 
+  it('repaints the static frame on resize under reduced motion, without starting the loop (edge 1 resize)', () => {
+    stubMatchMedia(true);
+    const ctx = fakeCtx();
+    stubGetContext(ctx);
+    const raf = vi.spyOn(window, 'requestAnimationFrame');
+
+    // Capture the ResizeObserver callback so we can fire a resize by hand. The default no-op stub
+    // in test/setup.ts never invokes it — that is why the blank-on-resize bug escaped review.
+    let observed = false;
+    let cb: (() => void) | null = null;
+    vi.stubGlobal(
+      'ResizeObserver',
+      class {
+        constructor(c: () => void) {
+          cb = c;
+        }
+        observe() {
+          observed = true;
+        }
+        unobserve() {}
+        disconnect() {}
+      },
+    );
+
+    const { container } = render(<BlockField />);
+    const canvas = container.querySelector('canvas')!;
+    expect(canvas.getAttribute('data-field-state')).toBe('reduced');
+    expect(observed).toBe(true);
+
+    // Isolate the resize repaint from the initial reduced-motion paint.
+    const clearRect = ctx.clearRect as unknown as ReturnType<typeof vi.fn>;
+    clearRect.mockClear();
+    expect(cb).not.toBeNull();
+    cb!();
+
+    // The resize repainted the static frame (draw → clearRect) ...
+    expect(clearRect).toHaveBeenCalled();
+    // ... and did NOT start the animation loop.
+    expect(raf).not.toHaveBeenCalled();
+  });
+
   it('degrades to a still, usable field when canvas 2D is unavailable (edge 2)', () => {
     stubMatchMedia(false);
     stubGetContext(null); // getContext('2d') returns null
