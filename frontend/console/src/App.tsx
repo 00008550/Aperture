@@ -1,7 +1,7 @@
 import { ApiError } from './api';
-import { clearAccessToken, useAccessToken, useSignOutReason } from './auth';
+import { useAccessToken, useSignOutReason } from './auth';
 import { BlockField } from './field/BlockField';
-import { Navigation } from './Navigation';
+import { Shell } from './app/Shell';
 import { SessionPanels } from './SessionPanels';
 import { SignIn } from './SignIn';
 import { useSession } from './useSession';
@@ -22,8 +22,8 @@ export default function App() {
   // half-rendered shell. There is no state in which the console shows navigation without a
   // session behind it.
   if (token === null) {
-    // P1 temporary demo mount: the living field renders behind the sign-in surface too. P2 moves
-    // the field into a dedicated `app/Shell.tsx` layering layer.
+    // The living Aurora Glass field renders behind the sign-in surface too. `Shell` owns the field
+    // for the signed-in layout; here (no shell yet) the field mounts directly behind the card.
     return (
       <>
         <BlockField />
@@ -33,43 +33,25 @@ export default function App() {
   }
 
   return (
-    <>
-      <BlockField />
-      <div className="shell">
-      <aside className="side">
-        <div className="brand">
-          Aperture
-          <small>order &amp; deal desk</small>
+    <Shell can={can}>
+      <h1 id="overview">Overview</h1>
+      <p className="sub">
+        Session from <span className="mono">GET /api/me</span>. Navigation is disabled where the
+        permission is missing; the API denies those calls regardless.
+      </p>
+
+      {isPending && <p className="sub">Loading session…</p>}
+
+      {error && !isPending && (
+        <div className="card">
+          <h2>Session</h2>
+          <p className="warn" role="alert">
+            {describeError(error)}
+          </p>
         </div>
+      )}
 
-        <Navigation can={can} />
-
-        <button type="button" className="link" onClick={() => clearAccessToken()}>
-          Sign out
-        </button>
-      </aside>
-
-      <main>
-        <h1 id="overview">Overview</h1>
-        <p className="sub">
-          Session from <span className="mono">GET /api/me</span>. Navigation is disabled where the
-          permission is missing; the API denies those calls regardless.
-        </p>
-
-        {isPending && <p className="sub">Loading session…</p>}
-
-        {error && !isPending && (
-          <div className="card">
-            <h2>Session</h2>
-            <p className="warn" role="alert">
-              {describeError(error)}
-            </p>
-          </div>
-        )}
-
-        {data && <SessionPanels session={data} />}
-      </main>
-      </div>
-    </>
+      {data && <SessionPanels session={data} />}
+    </Shell>
   );
 }

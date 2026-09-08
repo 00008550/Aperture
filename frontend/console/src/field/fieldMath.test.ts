@@ -1,5 +1,15 @@
 import { describe, expect, it } from 'vitest';
-import { buildGrid, flowAt, pulseAlive, pulseValue, shouldAnimate } from './fieldMath';
+import {
+  buildGrid,
+  buildPaneGrid,
+  flowAt,
+  idleShimmer,
+  pulseAlive,
+  pulseValue,
+  refractAt,
+  seamOf,
+  shouldAnimate,
+} from './fieldMath';
 
 describe('buildGrid — grid geometry for a viewport', () => {
   it('fills a viewport with blocks that stay inside its bounds', () => {
@@ -25,6 +35,72 @@ describe('buildGrid — grid geometry for a viewport', () => {
     expect(buildGrid(0, 600).blocks).toHaveLength(0);
     expect(buildGrid(800, 0).blocks).toHaveLength(0);
     expect(buildGrid(-5, -5).blocks).toHaveLength(0);
+  });
+});
+
+describe('buildPaneGrid — Aurora Glass pane grid + seam spacing (010-P2)', () => {
+  it('lays out big rounded panes separated by a uniform thin seam', () => {
+    const grid = buildPaneGrid(800, 600, { pane: 46, seam: 3 });
+    expect(grid.cols).toBeGreaterThan(1);
+    expect(grid.rows).toBeGreaterThan(1);
+    // The pane edge is at least the requested size.
+    expect(grid.cell).toBeGreaterThanOrEqual(46);
+    // Adjacent panes on a row are exactly one stride (pane edge + seam) apart.
+    const first = grid.blocks[0]!;
+    const second = grid.blocks[1]!;
+    const stride = second.x - first.x;
+    expect(stride).toBeCloseTo(grid.cell + 3, 6);
+    // So the seam between panes is exactly the requested 3px.
+    expect(stride - grid.cell).toBeCloseTo(3, 6);
+    expect(seamOf(grid, 3)).toBe(3);
+  });
+
+  it('grows the pane so the count never exceeds the cap (60fps guard)', () => {
+    const grid = buildPaneGrid(4000, 3000, { pane: 20, seam: 2, maxPanes: 300 });
+    expect(grid.blocks.length).toBeLessThanOrEqual(300);
+    expect(grid.cell).toBeGreaterThan(20);
+  });
+});
+
+describe('refractAt — glass panes lean/bulge toward the cursor (010-P2)', () => {
+  it('is inert with no pointer or beyond the influence radius', () => {
+    expect(refractAt(100, 100, null)).toEqual({ intensity: 0, dx: 0, dy: 0 });
+    expect(refractAt(0, 0, { x: 500, y: 500 }, { radius: 150 })).toEqual({ intensity: 0, dx: 0, dy: 0 });
+  });
+
+  it('intensifies as the pointer nears and leans the pane *toward* the pointer', () => {
+    const near = refractAt(100, 100, { x: 90, y: 100 }, { radius: 190, lean: 5 });
+    const far = refractAt(100, 100, { x: 10, y: 100 }, { radius: 190, lean: 5 });
+    expect(near.intensity).toBeGreaterThan(far.intensity);
+    expect(near.intensity).toBeLessThanOrEqual(1);
+    // Pointer is to the LEFT of the pane, so the pane leans left (toward it): dx < 0. This is the
+    // opposite sign to the P1 dot `flowAt`, which pushes away.
+    expect(near.dx).toBeLessThan(0);
+    expect(Math.abs(near.dy)).toBeLessThan(1e-9);
+  });
+
+  it('bulges without leaning when the pointer is exactly on the pane', () => {
+    const r = refractAt(100, 100, { x: 100, y: 100 }, { radius: 190 });
+    expect(r.intensity).toBeGreaterThan(0);
+    expect(r.dx).toBe(0);
+    expect(r.dy).toBe(0);
+  });
+
+  it('keeps the lean low-amplitude (quiet-but-alive)', () => {
+    const r = refractAt(100, 100, { x: 95, y: 100 }, { radius: 190, lean: 5 });
+    expect(Math.hypot(r.dx, r.dy)).toBeLessThanOrEqual(5);
+  });
+});
+
+describe('idleShimmer — quiet idle life far from the pointer (010-P2)', () => {
+  it('stays within [0, amplitude] for any pane and time', () => {
+    for (const now of [0, 250, 999, 5000, 123456]) {
+      for (const col of [0, 3, 17]) {
+        const v = idleShimmer(col, col + 2, now, 0.06);
+        expect(v).toBeGreaterThanOrEqual(0);
+        expect(v).toBeLessThanOrEqual(0.06);
+      }
+    }
   });
 });
 

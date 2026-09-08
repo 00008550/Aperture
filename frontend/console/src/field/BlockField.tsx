@@ -1,20 +1,24 @@
 import { useEffect, useRef, useState } from 'react';
 import {
-  buildGrid,
-  flowAt,
+  buildPaneGrid,
+  idleShimmer,
   pulseAlive,
   pulseValue,
+  refractAt,
   shouldAnimate,
   type Grid,
   type Pointer,
   type Pulse,
 } from './fieldMath';
 
-// The reactive canvas backdrop. It renders a grid of blocks behind the console shell that flow away
-// from the pointer and ripple on click, staying quiet-but-alive: low amplitude, no grain. All the
-// motion math lives in the pure `blockField.ts` module; this component owns only the DOM plumbing —
-// one requestAnimationFrame loop, a pointer ref (never React state — re-rendering hundreds of
-// blocks per frame is the bug this design avoids), the pulse list, and the lifecycle gates.
+// The reactive canvas backdrop — Aurora Glass form (010-P2). It renders a grid of big connected
+// rounded glass panes behind the console shell: near the pointer the panes bulge/lean/refract
+// toward the cursor, catch a diagonal reflection streak clipped inside each pane, and light their
+// edges as they wake; a click fires an impulse ripple. Quiet at rest (a slow idle shimmer), lively
+// near the cursor — "quiet but alive". All the motion math lives in the pure `fieldMath.ts` module;
+// this component owns only the DOM plumbing — one requestAnimationFrame loop, a pointer ref (never
+// React state — re-rendering hundreds of panes per frame is the bug this design avoids), the pulse
+// list, and the lifecycle gates.
 //
 // `data-field-state` is the observable contract (see plan §Observability): a browser check and a
 // test can read `animating` / `reduced` / `degraded` without inspecting pixels.
@@ -23,14 +27,16 @@ type FieldState = 'animating' | 'reduced' | 'degraded';
 const PULSE_DURATION = 1100;
 
 interface ThemeColours {
-  block: string;
+  pane: string;
   active: string;
+  edge: string;
+  reflection: string;
   pulse: string;
 }
 
 // Read the field's colours from the CSS theme tokens so it is correct in whichever theme is active.
-// P1 introduces these token names; P2 restructures the token sets and adds the light theme. Falling
-// back to the current dark values keeps a partial rollout rendering.
+// P2 restructured these into the Aurora Glass light + dark sets; falling back to sane dark values
+// keeps a partial rollout rendering.
 function readThemeColours(el: Element): ThemeColours {
   const s = getComputedStyle(el);
   const pick = (name: string, fallback: string) => {
@@ -38,14 +44,27 @@ function readThemeColours(el: Element): ThemeColours {
     return v.length > 0 ? v : fallback;
   };
   return {
-    block: pick('--field-block', 'rgba(76, 141, 255, 0.05)'),
-    active: pick('--field-block-active', 'rgba(76, 141, 255, 0.28)'),
-    pulse: pick('--field-pulse', 'rgba(120, 180, 255, 0.6)'),
+    pane: pick('--field-pane', 'rgba(230, 236, 246, 0.05)'),
+    active: pick('--field-active', 'rgba(65, 214, 195, 0.30)'),
+    edge: pick('--field-edge', 'rgba(138, 155, 255, 0.60)'),
+    reflection: pick('--field-reflection', 'rgba(255, 255, 255, 0.28)'),
+    pulse: pick('--field-pulse', 'rgba(65, 214, 195, 0.55)'),
   };
 }
 
 function prefersReducedMotion(): boolean {
   return typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true;
+}
+
+// A rounded-rect path helper — panes read as one glass surface, so the corners are generous but the
+// seams between them stay thin (the grid's gap). Uses the native roundRect where present.
+function panePath(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, r: number): void {
+  ctx.beginPath();
+  if (typeof ctx.roundRect === 'function') {
+    ctx.roundRect(x, y, w, w, r);
+  } else {
+    ctx.rect(x, y, w, w);
+  }
 }
 
 export function BlockField(): React.ReactElement {
@@ -79,8 +98,69 @@ export function BlockField(): React.ReactElement {
       canvas!.width = Math.max(1, Math.round(width * dpr));
       canvas!.height = Math.max(1, Math.round(height * dpr));
       ctx!.setTransform(dpr, 0, 0, dpr, 0, 0);
-      grid = buildGrid(width, height);
+      grid = buildPaneGrid(width, height);
       colours = readThemeColours(canvas!);
+    }
+
+    function drawPane(block: Grid['blocks'][number], now: number) {
+      const refr = refractAt(block.x, block.y, pointer.current);
+      let intensity = refr.intensity;
+      for (const p of pulses) {
+        const dist = Math.hypot(block.x - p.x, block.y - p.y);
+        intensity = Math.max(intensity, pulseValue(now - p.start, dist));
+      }
+      const idle = reduced ? 0 : idleShimmer(block.col, block.row, now);
+      const lit = Math.max(idle, intensity);
+
+      // Bulge toward the cursor: a subtle scale + lean displacement.
+      const edge = block.size;
+      const radius = edge * 0.28;
+      const scale = 1 + intensity * 0.12;
+      const s = edge * scale;
+      const cx = block.x + refr.dx;
+      const cy = block.y + refr.dy;
+      const x = cx - s / 2;
+      const y = cy - s / 2;
+
+      // Base pane fill — the quiet glass surface.
+      panePath(ctx!, x, y, s, radius);
+      ctx!.globalAlpha = 0.5 + idle * 2;
+      ctx!.fillStyle = colours.pane;
+      ctx!.fill();
+
+      // Wake tint — accent glass brightening as the pane leans toward the pointer / a pulse passes.
+      if (intensity > 0.01) {
+        ctx!.globalAlpha = intensity * 0.9;
+        ctx!.fillStyle = colours.active;
+        ctx!.fill();
+      }
+
+      // Edge light — the pane's rim catches light as it wakes.
+      if (lit > 0.06) {
+        ctx!.globalAlpha = Math.min(1, lit * 1.1);
+        ctx!.lineWidth = 1;
+        ctx!.strokeStyle = colours.edge;
+        ctx!.stroke();
+      }
+
+      // Diagonal reflection streak, clipped inside the pane — only where the pane is awake, to keep
+      // the whole sheet at 60fps.
+      if (lit > 0.14) {
+        ctx!.save();
+        panePath(ctx!, x, y, s, radius);
+        ctx!.clip();
+        const g = ctx!.createLinearGradient(x, y, x + s, y + s);
+        const stop = colours.reflection;
+        g.addColorStop(0.0, 'transparent');
+        g.addColorStop(0.42, 'transparent');
+        g.addColorStop(0.5, stop);
+        g.addColorStop(0.58, 'transparent');
+        g.addColorStop(1.0, 'transparent');
+        ctx!.globalAlpha = Math.min(1, lit);
+        ctx!.fillStyle = g;
+        ctx!.fillRect(x, y, s, s);
+        ctx!.restore();
+      }
     }
 
     function draw(now: number) {
@@ -90,24 +170,7 @@ export function BlockField(): React.ReactElement {
         const p = pulses[i]!;
         if (!pulseAlive(p.start, now, PULSE_DURATION)) pulses.splice(i, 1);
       }
-
-      for (const block of grid.blocks) {
-        const flow = flowAt(block.x, block.y, pointer.current);
-        let intensity = flow.intensity;
-        for (const p of pulses) {
-          const dist = Math.hypot(block.x - p.x, block.y - p.y);
-          intensity = Math.max(intensity, pulseValue(now - p.start, dist));
-        }
-        const size = block.size - 2;
-        // Blocks flow *in and out*: a subtle scale + displacement, brightening with intensity.
-        const scale = 1 + intensity * 0.18;
-        const s = size * scale;
-        const x = block.x + flow.dx - s / 2;
-        const y = block.y + flow.dy - s / 2;
-        ctx!.fillStyle = intensity > 0.001 ? colours.active : colours.block;
-        ctx!.globalAlpha = 0.35 + intensity * 0.65;
-        ctx!.fillRect(x, y, s, s);
-      }
+      for (const block of grid.blocks) drawPane(block, now);
       ctx!.globalAlpha = 1;
     }
 
@@ -171,6 +234,15 @@ export function BlockField(): React.ReactElement {
       schedule();
     }
 
+    // The theme can flip at runtime (the sidebar toggle sets `data-theme` on <html>). Re-read the
+    // tokens when it does so the field is correct in the new theme without a reload. Under reduced
+    // motion there is no loop, so repaint the single static frame immediately.
+    const themeObserver = new MutationObserver(() => {
+      colours = readThemeColours(canvas);
+      if (reduced) draw(performance.now());
+    });
+    themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+
     const resizeObserver = new ResizeObserver(() => resize());
     resizeObserver.observe(canvas);
 
@@ -180,6 +252,7 @@ export function BlockField(): React.ReactElement {
       window.removeEventListener('pointerdown', onPointerDown);
       window.removeEventListener('pointerleave', onPointerLeave);
       document.removeEventListener('visibilitychange', onVisibility);
+      themeObserver.disconnect();
       resizeObserver.disconnect();
     };
   }, []);
