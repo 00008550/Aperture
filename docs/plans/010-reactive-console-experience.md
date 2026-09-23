@@ -247,7 +247,7 @@ Contacts, Deals (grid + detail + lifecycle), all floating on the block-field, al
 **Tests:** theme toggle switches token set and persists across a remount; default derives from `prefers-color-scheme`; reduced-motion branch renders no loop (edge 1); degraded branch renders content (edge 2); the block-field reads theme tokens (assert the token source, not pixels); glass-pane geometry (pane grid + seam spacing) covered by pure `blockField.ts` tests, with pulse-decay (edge 3) and tab-hidden pause (edge 4) still holding after the upgrade; `App.test.tsx` still green.
 **Risk:** medium
 
-### [ ] P3 — Data layer: typed client + query hooks (no new visuals)
+### [x] P3 — Data layer: typed client + query hooks (no new visuals)
 **Touches:** `api.ts` (extend with Sales contracts + cursor helpers), new `data/useAccounts.ts`, `data/useContacts.ts`, `data/useDeals.ts`, `data/keys.ts`, tests with mocked `fetch`.
 **Done when:** typed hooks exist for accounts/contacts/deals reads (list with keyset cursor + detail) and the write mutations, keyed by stable query keys, reusing the token/`can()` fail-closed pattern; 401/403 drops the token to sign-in as `useSession` does. No screen yet — verified by tests.
 **Tests:** cursor pagination advances and stops on null (edge 11); a mutation invalidates its key; 401/403 path clears the token; empty-scope response maps to the stated-empty model (edge 5).
