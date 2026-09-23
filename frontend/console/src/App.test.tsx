@@ -83,7 +83,7 @@ describe('the console session', () => {
     expect(screen.getByText('Deals').closest('a')).toHaveAttribute('aria-disabled', 'true');
 
     await waitFor(() =>
-      expect(screen.getByText('Deals').closest('a')).toHaveAttribute('href', '#deals'),
+      expect(screen.getByText('Deals').closest('a')).toHaveAttribute('href', '/deals'),
     );
     expect(screen.getByText('Orders').closest('a')).toHaveAttribute('aria-disabled', 'true');
   });
