@@ -253,7 +253,7 @@ Contacts, Deals (grid + detail + lifecycle), all floating on the block-field, al
 **Tests:** cursor pagination advances and stops on null (edge 11); a mutation invalidates its key; 401/403 path clears the token; empty-scope response maps to the stated-empty model (edge 5).
 **Risk:** low
 
-### [ ] P4 — Accounts screen (router + first real grid)
+### [x] P4 — Accounts screen (router + first real grid)
 **Touches:** new `app/router.tsx` (react-router route table + guards), `screens/accounts/*`, `Navigation.tsx` (wire real routes, keep the fail-closed `can()` gating), `package.json` (**add `react-router` dependency**), tests.
 **Design decision (Essential):** the router is **`react-router`** (user decision, 2026-09-05) — real route guards, maintained, well-understood auth/permission-gating patterns. `react-router` provides the routing; **authorization still flows through the existing fail-closed `can()` / `Navigation.tsx` pattern** — a route guard consults `can()` and denies (locked affordance, no fetch) exactly as the nav does; the router is never the auth authority.
 **Done when:** the `react-router` route table puts a real Accounts screen behind the nav (gated on `accounts.read` via a `can()`-backed guard, fail-closed); a reactive grid lists accounts over the field with quiet-but-alive hover/focus/selection micro-interactions; create + edit forms bind to `POST`/`PATCH` with `xmin` round-trip; a `409` shows the "changed by someone else" state and refetches; empty scope shows the stated-empty surface. **Correct in both light and dark themes**; reduced-motion/degrade Done-when holds. Browser-verified.
