@@ -1,5 +1,6 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
+  ApiError,
   createAccount,
   getAccount,
   listAccounts,
@@ -85,5 +86,13 @@ export function useUpdateAccount() {
     mutationFn: ({ id, body }: { id: string; body: UpdateAccountRequest }) =>
       allowed ? updateAccount(id, body) : Promise.reject(deniedLocally(Permissions.AccountsWrite)),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.accounts.all }),
+    // A 409 means our copy is stale: refetch so the screen can show what the server now holds
+    // (edge 7). Refetch only — the write is never resubmitted without the user asking again.
+    onError: (error) => {
+      if (error instanceof ApiError && error.status === 409) {
+        return queryClient.invalidateQueries({ queryKey: queryKeys.accounts.all });
+      }
+      return undefined;
+    },
   });
 }

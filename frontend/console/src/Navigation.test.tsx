@@ -1,7 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render as rtlRender, screen } from '@testing-library/react';
+import type { ReactElement } from 'react';
+import { MemoryRouter } from 'react-router';
 import { Navigation } from './Navigation';
 import { Permissions, type Permission } from './permissions';
+
+// NavLink needs a router; a MemoryRouter at / stands in for the app's BrowserRouter.
+const render = (ui: ReactElement) => rtlRender(<MemoryRouter>{ui}</MemoryRouter>);
 
 const holding = (...held: Permission[]) => (p: Permission) => held.includes(p);
 
@@ -10,7 +15,7 @@ describe('the permission gate', () => {
     render(<Navigation can={holding(Permissions.DealsRead)} />);
 
     const deals = screen.getByRole('link', { name: /^Deals$/ });
-    expect(deals).toHaveAttribute('href', '#deals');
+    expect(deals).toHaveAttribute('href', '/deals');
     expect(deals).not.toHaveAttribute('aria-disabled');
   });
 
@@ -36,6 +41,18 @@ describe('the permission gate', () => {
     render(<Navigation can={() => false} />);
 
     expect(screen.getByText('Administration')).toBeInTheDocument();
+  });
+
+  it('marks the active route with aria-current, and only that route', () => {
+    rtlRender(
+      <MemoryRouter initialEntries={['/deals']}>
+        <Navigation can={holding(Permissions.DealsRead, Permissions.AccountsRead)} />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByRole('link', { name: /^Deals$/ })).toHaveAttribute('aria-current', 'page');
+    expect(screen.getByRole('link', { name: /^Accounts$/ })).not.toHaveAttribute('aria-current');
+    expect(screen.getByRole('link', { name: 'Overview' })).not.toHaveAttribute('aria-current');
   });
 
   it('gates on the exact permission string, never a prefix', () => {

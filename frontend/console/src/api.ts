@@ -1,11 +1,65 @@
 import { clearAccessToken, getAccessToken } from './auth';
 
+/**
+ * A non-2xx answer from the API. It keeps the status AND the parsed response body: the server is
+ * the authority on *why* a write was refused (a stale `xmin`, a duplicate tax id, an illegal
+ * lifecycle move), and a screen that can only say "409" has thrown that answer away.
+ */
 export class ApiError extends Error {
   constructor(
     readonly status: number,
     message: string,
+    /** The parsed JSON body, the raw text when it was not JSON, or `null` when there was none. */
+    readonly body: unknown = null,
   ) {
     super(message);
+  }
+
+  /** The server's own human-readable reason, when the body carries one. */
+  get serverMessage(): string | null {
+    return serverMessageOf(this.body);
+  }
+}
+
+/**
+ * Pulls the human-readable reason out of an error body. The Sales endpoints answer
+ * `{ error: "…" }`; framework failures (model binding, `Results.Problem`) answer RFC 7807
+ * ProblemDetails, whose `detail` is more specific than its `title`, and whose validation variant
+ * lists per-field `errors`. Anything else yields `null` — the caller falls back to its own wording
+ * rather than showing a guess.
+ */
+export function serverMessageOf(body: unknown): string | null {
+  if (typeof body === 'string') return body.trim() || null;
+  if (typeof body !== 'object' || body === null) return null;
+  const record = body as Record<string, unknown>;
+  for (const key of ['error', 'detail', 'message'] as const) {
+    const value = record[key];
+    if (typeof value === 'string' && value.trim()) return value;
+  }
+  const errors = record.errors;
+  if (typeof errors === 'object' && errors !== null) {
+    const messages = Object.values(errors as Record<string, unknown>)
+      .flatMap((value) => (Array.isArray(value) ? value : [value]))
+      .filter((value): value is string => typeof value === 'string' && value.trim() !== '');
+    if (messages.length > 0) return messages.join(' ');
+  }
+  const title = record.title;
+  return typeof title === 'string' && title.trim() ? title : null;
+}
+
+/** Reads an error response's body once: JSON when it parses, text otherwise, `null` when empty. */
+async function readErrorBody(res: Response): Promise<unknown> {
+  let text: string;
+  try {
+    text = await res.text();
+  } catch {
+    return null;
+  }
+  if (!text) return null;
+  try {
+    return JSON.parse(text) as unknown;
+  } catch {
+    return text;
   }
 }
 
@@ -23,7 +77,13 @@ export async function api<T>(path: string, init?: RequestInit): Promise<T> {
     },
   });
 
-  if (!res.ok) throw new ApiError(res.status, `${init?.method ?? 'GET'} ${path} -> ${res.status}`);
+  if (!res.ok) {
+    throw new ApiError(
+      res.status,
+      `${init?.method ?? 'GET'} ${path} -> ${res.status}`,
+      await readErrorBody(res),
+    );
+  }
   return (await res.json()) as T;
 }
 

@@ -1,7 +1,9 @@
+import { BrowserRouter } from 'react-router';
 import { ApiError } from './api';
 import { useAccessToken, useSignOutReason } from './auth';
 import { BlockField } from './field/BlockField';
 import { Shell } from './app/Shell';
+import { ConsoleRoutes } from './app/router';
 import { SessionPanels } from './SessionPanels';
 import { SignIn } from './SignIn';
 import { useSession } from './useSession';
@@ -32,8 +34,8 @@ export default function App() {
     );
   }
 
-  return (
-    <Shell can={can}>
+  const overview = (
+    <>
       <h1 id="overview">Overview</h1>
       <p className="sub">
         Session from <span className="mono">GET /api/me</span>. Navigation is disabled where the
@@ -52,6 +54,16 @@ export default function App() {
       )}
 
       {data && <SessionPanels session={data} />}
-    </Shell>
+    </>
+  );
+
+  // The router lives inside the signed-in branch: there is no route to reach without a session
+  // behind it, and every gated route re-asks `can()` (app/router.tsx).
+  return (
+    <BrowserRouter>
+      <Shell can={can}>
+        <ConsoleRoutes overview={overview} />
+      </Shell>
+    </BrowserRouter>
   );
 }
