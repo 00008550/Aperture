@@ -1,33 +1,154 @@
-:root {
-  --bg: #0f1115;
-  --panel: #161a21;
-  --line: #242a34;
-  --text: #e6e9ef;
-  --muted: #8b93a3;
-  --accent: #4c8dff;
-  --warn: #f0a04b;
-  --ok: #4bd18c;
+/* Aurora Glass — the console's design system (010-P2).
+   ---------------------------------------------------------------------------------------------
+   Light and dark are BOTH first-class. Three viewer states must resolve, and an explicit choice
+   must win over the OS preference:
 
-  /* Layer tiers: the reactive field sits behind the content shell. P2 restructures these into a
-     full light+dark token system; P1 introduces the names the field and shell consume. */
+     • bare `:root`                                  → light (the base token set)
+     • `@media (prefers-color-scheme: dark)`, guarded
+       with `:root:not([data-theme])`                → OS-dark when the viewer has made no choice
+     • `:root[data-theme="dark"]`                    → explicit dark (set by `app/theme.ts`)
+     • `:root[data-theme="light"]`                   → explicit light: matches nothing in the
+                                                        media block, so the base `:root` light set
+                                                        applies even under an OS-dark preference.
+
+   Hierarchy comes from depth and light (frosted glass, soft shadow), never heavy borders — the
+   Linear/Attio-calm, premium feel of the locked Aurora Glass direction. The reactive field reads
+   its colours from the `--field-*` tokens below, so it is correct in whichever theme is active. */
+
+:root {
+  /* --- Cool-slate neutrals (chosen, not default grey) — LIGHT --- */
+  --bg: #eef1f7;
+  --bg-2: #e3e8f2;
+  --text: #1a2130;
+  --muted: #5c6682;
+
+  /* --- Accent: teal + indigo (light) --- */
+  --accent: #28b6a4;
+  --accent-2: #6f83f5;
+
+  /* --- Semantic — kept separate from the accent --- */
+  --ok: #1f9d63;
+  --warn: #c67d24;
+  --bad: #d0473f;
+
+  /* --- Glass panels: translucent surface, hairline border, soft shadow, large radius --- */
+  --glass-bg: rgba(255, 255, 255, 0.55);
+  --glass-bg-strong: rgba(255, 255, 255, 0.72);
+  --glass-border: rgba(26, 33, 48, 0.10);
+  --glass-shadow: 0 10px 30px -12px rgba(26, 33, 48, 0.28), 0 1px 0 0 rgba(255, 255, 255, 0.6) inset;
+  --glass-blur: 16px;
+  --radius: 16px;
+  --radius-sm: 10px;
+
+  /* --- Aurora backdrop tints (the soft colour wash behind the field) --- */
+  --aurora-1: rgba(40, 182, 164, 0.16);
+  --aurora-2: rgba(111, 131, 245, 0.16);
+
+  /* --- Type system --- */
+  --font-display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --font-body: "IBM Plex Sans", system-ui, "Segoe UI", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "Cascadia Mono", monospace;
+
+  /* --- Layer tiers: the reactive field sits behind the glass content --- */
   --layer-field: 0;
   --layer-content: 1;
 
-  /* Field tokens — the block-field reads its colours from here so it is correct in whichever
-     theme is active. Dark values today; P2 adds the light set alongside them. */
-  --field-block: rgba(76, 141, 255, 0.05);
-  --field-block-active: rgba(76, 141, 255, 0.30);
-  --field-pulse: rgba(120, 180, 255, 0.60);
+  /* --- Field tokens (LIGHT): the block-field / glass panes read every colour from here --- */
+  --field-pane: rgba(26, 40, 66, 0.05);
+  --field-active: rgba(40, 182, 164, 0.30);
+  --field-edge: rgba(111, 131, 245, 0.55);
+  --field-reflection: rgba(255, 255, 255, 0.65);
+  --field-pulse: rgba(40, 182, 164, 0.55);
+  /* Back-compat with the P1 dot names so a partial surface still renders. */
+  --field-block: var(--field-pane);
+  --field-block-active: var(--field-active);
+
+  color-scheme: light;
+}
+
+/* OS-dark, but only when the viewer has made no explicit choice. `:root:not([data-theme])` has
+   higher specificity than `:root[data-theme="dark"]`, but the two never match simultaneously
+   (the attribute is either absent or present), so there is no conflict — and an explicit choice
+   always resolves through the `[data-theme]` rules below. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) {
+    --bg: #0d1017;
+    --bg-2: #12161f;
+    --text: #e6e9ef;
+    --muted: #8b93a3;
+
+    --accent: #41d6c3;
+    --accent-2: #8a9bff;
+
+    --ok: #4bd18c;
+    --warn: #f0a04b;
+    --bad: #f0685f;
+
+    --glass-bg: rgba(22, 27, 37, 0.55);
+    --glass-bg-strong: rgba(22, 27, 37, 0.74);
+    --glass-border: rgba(255, 255, 255, 0.08);
+    --glass-shadow: 0 14px 40px -14px rgba(0, 0, 0, 0.6), 0 1px 0 0 rgba(255, 255, 255, 0.05) inset;
+
+    --aurora-1: rgba(65, 214, 195, 0.14);
+    --aurora-2: rgba(138, 155, 255, 0.16);
+
+    --field-pane: rgba(230, 236, 246, 0.045);
+    --field-active: rgba(65, 214, 195, 0.30);
+    --field-edge: rgba(138, 155, 255, 0.60);
+    --field-reflection: rgba(255, 255, 255, 0.28);
+    --field-pulse: rgba(65, 214, 195, 0.55);
+
+    color-scheme: dark;
+  }
+}
+
+/* Explicit dark — the viewer's stored choice wins over the OS preference. */
+:root[data-theme="dark"] {
+  --bg: #0d1017;
+  --bg-2: #12161f;
+  --text: #e6e9ef;
+  --muted: #8b93a3;
+
+  --accent: #41d6c3;
+  --accent-2: #8a9bff;
+
+  --ok: #4bd18c;
+  --warn: #f0a04b;
+  --bad: #f0685f;
+
+  --glass-bg: rgba(22, 27, 37, 0.55);
+  --glass-bg-strong: rgba(22, 27, 37, 0.74);
+  --glass-border: rgba(255, 255, 255, 0.08);
+  --glass-shadow: 0 14px 40px -14px rgba(0, 0, 0, 0.6), 0 1px 0 0 rgba(255, 255, 255, 0.05) inset;
+
+  --aurora-1: rgba(65, 214, 195, 0.14);
+  --aurora-2: rgba(138, 155, 255, 0.16);
+
+  --field-pane: rgba(230, 236, 246, 0.045);
+  --field-active: rgba(65, 214, 195, 0.30);
+  --field-edge: rgba(138, 155, 255, 0.60);
+  --field-reflection: rgba(255, 255, 255, 0.28);
+  --field-pulse: rgba(65, 214, 195, 0.55);
 
   color-scheme: dark;
 }
+
 * { box-sizing: border-box; }
+
 body {
   margin: 0;
-  background: var(--bg);
   color: var(--text);
-  font: 14px/1.55 ui-sans-serif, system-ui, "Segoe UI", sans-serif;
+  font: 15px/1.6 var(--font-body);
+  /* The aurora wash: two soft radial tints over the cool-slate base, so the field breathes over
+     colour rather than flat neutral. Fixed so it does not scroll. */
+  background:
+    radial-gradient(1200px 800px at 12% -8%, var(--aurora-1), transparent 60%),
+    radial-gradient(1100px 760px at 92% 6%, var(--aurora-2), transparent 62%),
+    linear-gradient(160deg, var(--bg) 0%, var(--bg-2) 100%);
+  background-attachment: fixed;
+  min-height: 100vh;
 }
+
 /* The reactive block-field: a fixed, full-viewport canvas pinned behind the content. It never
    captures pointer events (the shell above stays fully interactive) and is aria-hidden. */
 .field {
@@ -39,33 +160,162 @@ body {
   pointer-events: none;
   display: block;
 }
-.shell { position: relative; z-index: var(--layer-content); display: grid; grid-template-columns: 232px 1fr; min-height: 100vh; }
+
+.shell {
+  position: relative;
+  z-index: var(--layer-content);
+  display: grid;
+  grid-template-columns: 244px 1fr;
+  min-height: 100vh;
+}
 /* The shell floats on the field: let the field breathe through the main content area. */
 .shell main { background: transparent; }
-.side { border-right: 1px solid var(--line); padding: 20px 16px; background: color-mix(in srgb, var(--panel) 90%, transparent); }
-.brand { font-weight: 650; letter-spacing: .02em; margin-bottom: 22px; }
-.brand small { display: block; color: var(--muted); font-weight: 400; letter-spacing: 0; }
-nav a { display: block; padding: 7px 10px; border-radius: 6px; color: var(--muted); text-decoration: none; }
-nav a[aria-current="page"] { background: #1e2531; color: var(--text); }
-nav a[data-denied="true"] { opacity: .35; pointer-events: none; }
-main { padding: 28px 32px; }
-h1 { font-size: 19px; margin: 0 0 4px; }
-.sub { color: var(--muted); margin: 0 0 24px; }
-.grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); }
-.card { border: 1px solid var(--line); border-radius: 9px; padding: 14px 16px; background: color-mix(in srgb, var(--panel) 88%, transparent); backdrop-filter: blur(6px); }
-.card h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .07em; color: var(--muted); margin: 0 0 8px; }
-.mono { font-family: ui-monospace, "Cascadia Mono", monospace; font-size: 12px; }
-.pill { display: inline-block; padding: 1px 8px; border-radius: 999px; border: 1px solid var(--line); margin: 2px 4px 2px 0; font-size: 12px; }
-.ok { color: var(--ok); } .warn { color: var(--warn); }
-nav a[data-denied="true"] { cursor: not-allowed; }
+
+/* Frosted-glass sidebar. */
+.side {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 22px 16px;
+  margin: 14px 0 14px 14px;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius);
+  background: var(--glass-bg);
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  backdrop-filter: blur(var(--glass-blur));
+  box-shadow: var(--glass-shadow);
+  height: calc(100vh - 28px);
+  position: sticky;
+  top: 14px;
+}
+.brand {
+  font-family: var(--font-display);
+  font-weight: 650;
+  font-size: 18px;
+  letter-spacing: .01em;
+  margin-bottom: 22px;
+}
+.brand small { display: block; color: var(--muted); font-weight: 400; letter-spacing: 0; font-size: 12px; }
+
+nav { display: flex; flex-direction: column; gap: 2px; }
+nav a {
+  display: block;
+  padding: 8px 11px;
+  border-radius: var(--radius-sm);
+  color: var(--muted);
+  text-decoration: none;
+  transition: background-color .18s ease, color .18s ease, transform .18s ease;
+}
+nav a:hover { color: var(--text); background: color-mix(in srgb, var(--accent) 12%, transparent); transform: translateX(2px); }
+nav a[aria-current="page"] { background: color-mix(in srgb, var(--accent) 16%, transparent); color: var(--text); }
+nav a[data-denied="true"] { opacity: .38; pointer-events: none; cursor: not-allowed; }
 nav a .lock { color: var(--warn); font-size: 11px; }
-.side button.link { margin-top: 22px; background: none; border: 0; color: var(--muted); padding: 7px 10px; cursor: pointer; font: inherit; }
-.side button.link:hover { color: var(--text); }
-.signin { display: grid; place-items: center; min-height: 100vh; padding: 24px; }
+
+main { padding: 30px 34px; }
+h1 { font-family: var(--font-display); font-size: 22px; font-weight: 600; margin: 0 0 4px; letter-spacing: .005em; }
+.sub { color: var(--muted); margin: 0 0 24px; }
+
+.grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); }
+
+/* Frosted-glass content panels — translucent, blurred, hairline border, soft shadow, ~16px radius.
+   Hierarchy from depth and light, not heavy borders. */
+.card {
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius);
+  padding: 16px 18px;
+  background: var(--glass-bg);
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  backdrop-filter: blur(var(--glass-blur));
+  box-shadow: var(--glass-shadow);
+  transition: transform .2s ease, box-shadow .2s ease;
+}
+.card:hover { transform: translateY(-1px); }
+.card h2 { font-family: var(--font-display); font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin: 0 0 8px; }
+
+.mono { font-family: var(--font-mono); font-size: 12.5px; }
+.pill {
+  display: inline-block;
+  padding: 2px 9px;
+  border-radius: 999px;
+  border: 1px solid var(--glass-border);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+  margin: 2px 4px 2px 0;
+  font-size: 12px;
+}
+.ok { color: var(--ok); }
+.warn { color: var(--warn); }
+.bad { color: var(--bad); }
+
+/* Theme toggle — a glassy, quiet-but-alive control in the sidebar. */
+.side .theme-toggle {
+  margin-top: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 11px;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-sm);
+  background: var(--glass-bg-strong);
+  color: var(--muted);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  transition: color .18s ease, background-color .18s ease, transform .12s ease;
+}
+.side .theme-toggle:hover { color: var(--text); background: color-mix(in srgb, var(--accent) 14%, transparent); }
+.side .theme-toggle:active { transform: scale(.98); }
+.side .theme-toggle .glyph { font-size: 15px; line-height: 1; }
+
+.side button.link {
+  margin-top: 10px;
+  background: none;
+  border: 0;
+  color: var(--muted);
+  padding: 8px 11px;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+  border-radius: var(--radius-sm);
+  transition: color .18s ease, background-color .18s ease;
+}
+.side button.link:hover { color: var(--text); background: color-mix(in srgb, var(--bad) 12%, transparent); }
+
+/* Focus-visible: quiet accent ring on every interactive element (a11y groundwork; hardened in P8). */
+a:focus-visible,
+button:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+.signin { display: grid; place-items: center; min-height: 100vh; padding: 24px; position: relative; z-index: var(--layer-content); }
 .signin .card { width: min(560px, 100%); }
 .signin label { display: block; color: var(--muted); font-size: 12px; margin-bottom: 6px; }
-.signin textarea { width: 100%; background: var(--bg); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 9px 10px; resize: vertical; }
-.signin button[type="submit"] { margin-top: 14px; background: var(--accent); color: #08101f; border: 0; border-radius: 6px; padding: 8px 16px; font: inherit; font-weight: 600; cursor: pointer; }
-.signin button[type="submit"]:disabled { opacity: .4; cursor: not-allowed; }
-.empty { border: 1px dashed var(--warn); border-radius: 7px; padding: 10px 12px; }
+.signin textarea {
+  width: 100%;
+  background: color-mix(in srgb, var(--bg) 70%, transparent);
+  color: var(--text);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-sm);
+  padding: 10px 11px;
+  resize: vertical;
+  font: inherit;
+}
+.signin button[type="submit"] {
+  margin-top: 14px;
+  background: linear-gradient(120deg, var(--accent), var(--accent-2));
+  color: #061018;
+  border: 0;
+  border-radius: var(--radius-sm);
+  padding: 9px 18px;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform .12s ease, box-shadow .2s ease;
+}
+.signin button[type="submit"]:hover { transform: translateY(-1px); box-shadow: 0 8px 20px -8px color-mix(in srgb, var(--accent) 70%, transparent); }
+.signin button[type="submit"]:disabled { opacity: .4; cursor: not-allowed; transform: none; box-shadow: none; }
+
+.empty { border: 1px dashed var(--warn); border-radius: var(--radius-sm); padding: 11px 13px; background: color-mix(in srgb, var(--warn) 8%, transparent); }
 .empty .sub { margin: 6px 0 0; }

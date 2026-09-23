@@ -78,6 +78,37 @@ export function buildGrid(width: number, height: number, options: GridOptions = 
   return { cols, rows, cell: size, blocks };
 }
 
+export interface PaneGridOptions {
+  /** target edge length of a glass pane, in CSS pixels (grown to honour maxPanes) */
+  pane?: number;
+  /** width of the seam between panes, in CSS pixels — kept thin so the field reads as one surface */
+  seam?: number;
+  /** hard cap on pane count — the field grows the pane to stay under it (60fps guard) */
+  maxPanes?: number;
+}
+
+// Aurora Glass form (010-P2): big connected ~46px rounded tiles separated by a thin seam, so the
+// whole reads as one continuous glass surface. This is `buildGrid` with pane-scaled defaults; the
+// `gap` it lays out *is* the seam, and `cell`/`size` is the pane edge.
+const DEFAULT_PANES: Required<PaneGridOptions> = { pane: 46, seam: 3, maxPanes: 700 };
+
+/**
+ * Lay out the glass-pane grid. Panes are large rounded tiles (`pane` px) separated by a thin
+ * `seam` (px); the stride between pane centres is exactly `pane + seam`, so the seam spacing is
+ * uniform and the surface reads as one sheet of glass. The pane grows until the count fits under
+ * `maxPanes`, keeping the field paintable at 60fps regardless of viewport size.
+ */
+export function buildPaneGrid(width: number, height: number, options: PaneGridOptions = {}): Grid {
+  const { pane, seam, maxPanes } = { ...DEFAULT_PANES, ...options };
+  return buildGrid(width, height, { cell: pane, gap: seam, maxBlocks: maxPanes });
+}
+
+/** The seam spacing of a laid-out grid: the gap between adjacent panes (stride − pane edge). */
+export function seamOf(_grid: Grid, requestedSeam: number = DEFAULT_PANES.seam): number {
+  // buildGrid never shrinks the gap; it only grows the pane. So the seam is exactly as requested.
+  return requestedSeam;
+}
+
 export interface Pointer {
   readonly x: number;
   readonly y: number;
@@ -181,4 +212,59 @@ export interface AnimationGate {
  */
 export function shouldAnimate({ hidden, reducedMotion }: AnimationGate): boolean {
   return !hidden && !reducedMotion;
+}
+
+export interface Refraction {
+  /** 0..1 proximity intensity — drives the pane's wake (bulge, edge-light, reflection) */
+  readonly intensity: number;
+  /** lean/lens displacement in CSS pixels — the pane leans *toward* the pointer, as glass refracts */
+  readonly dx: number;
+  readonly dy: number;
+}
+
+export interface RefractOptions {
+  /** pointer influence radius in CSS pixels */
+  radius?: number;
+  /** peak lean toward the pointer in CSS pixels (kept low — quiet-but-alive) */
+  lean?: number;
+}
+
+const NO_REFRACTION: Refraction = { intensity: 0, dx: 0, dy: 0 };
+const DEFAULT_REFRACT: Required<RefractOptions> = { radius: 190, lean: 5 };
+
+/**
+ * Aurora Glass refraction for one pane (010-P2). Unlike the P1 dot `flowAt` — which pushes blocks
+ * *away* from the pointer — a glass pane behaves like a lens: within `radius` it gains a smooth
+ * (smoothstep) intensity and *leans toward* the pointer, so the surface appears to bulge under the
+ * cursor. Outside the radius, or with no pointer, the pane is inert. Motion eases in via smoothstep
+ * (cubic shoulders) so the field is quiet at rest and lively near the cursor.
+ */
+export function refractAt(bx: number, by: number, pointer: Pointer | null, options: RefractOptions = {}): Refraction {
+  if (!pointer) return NO_REFRACTION;
+  const { radius, lean } = { ...DEFAULT_REFRACT, ...options };
+  const dx = pointer.x - bx;
+  const dy = pointer.y - by;
+  const dist = Math.hypot(dx, dy);
+  if (dist >= radius) return NO_REFRACTION;
+
+  const t = 1 - dist / radius; // 1 at the pointer, 0 at the radius edge
+  const intensity = t * t * (3 - 2 * t); // smoothstep — eased shoulders, no hard ring
+  if (dist === 0) {
+    // Exactly under the pointer there is no direction; the pane bulges without leaning.
+    return { intensity, dx: 0, dy: 0 };
+  }
+  const ux = dx / dist;
+  const uy = dy / dist;
+  const pull = intensity * lean;
+  return { intensity, dx: ux * pull, dy: uy * pull };
+}
+
+/**
+ * A quiet idle shimmer (0..1) for a pane at (col,row), so the surface is never fully inert even
+ * far from the pointer — "quiet but alive". Deterministic in `now` so it is testable and so the
+ * whole sheet breathes coherently rather than twinkling like noise.
+ */
+export function idleShimmer(col: number, row: number, now: number, amplitude: number = 0.06): number {
+  const phase = now * 0.0011 + col * 0.5 + row * 0.42;
+  return amplitude * (0.5 + 0.5 * Math.sin(phase));
 }
