@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
-import { ApiError, api, type Session } from './api';
-import { clearAccessToken, useAccessToken } from './auth';
+import { apiAuthed, type Session } from './api';
+import { useAccessToken } from './auth';
 import type { Permission } from './permissions';
 
 /**
@@ -15,21 +15,10 @@ export function useSession() {
 
   const query = useQuery({
     queryKey: ['session', token],
-    queryFn: async () => {
-      try {
-        return await api<Session>('/api/me');
-      } catch (error) {
-        // A rejected token is not a transient error: drop it so the console returns to
-        // sign-in instead of retrying a credential the API has already refused.
-        if (error instanceof ApiError && (error.status === 401 || error.status === 403)) {
-          clearAccessToken(
-            'That token was refused. It may have expired, or the account may no longer be an ' +
-              'active member of the tenant it names.',
-          );
-        }
-        throw error;
-      }
-    },
+    // apiAuthed drops a refused token (401/403) so the console returns to sign-in instead of
+    // retrying a credential the API has already rejected — the one shared mechanism every data
+    // hook uses too, so there is a single place that decides a token has died.
+    queryFn: () => apiAuthed<Session>('/api/me'),
     enabled: token !== null,
     retry: false,
     staleTime: 5 * 60_000,
