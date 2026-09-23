@@ -1,7 +1,8 @@
-import { useRef, useState, type FormEvent, type ReactNode } from 'react';
+import { useState, type FormEvent, type ReactNode } from 'react';
 import type { AccountView } from '../../api';
 import { useAccount, useCreateAccount, useUpdateAccount } from '../../data/useAccounts';
 import { Permissions } from '../../permissions';
+import { useSingleFlight } from '../useSingleFlight';
 import {
   EMPTY_DRAFT,
   changedFields,
@@ -92,25 +93,6 @@ function Problems({ problems }: { problems: string[] }) {
       ))}
     </ul>
   );
-}
-
-/**
- * Double-submit guard (edge 10). The button is disabled while the mutation is pending, and a ref
- * closes the gap between the first click and React re-rendering the disabled button — two clicks
- * in one frame still send one request.
- */
-function useSingleFlight() {
-  const inFlight = useRef(false);
-  return {
-    begin: () => {
-      if (inFlight.current) return false;
-      inFlight.current = true;
-      return true;
-    },
-    end: () => {
-      inFlight.current = false;
-    },
-  };
 }
 
 // ---------------------------------------------------------------------------------------------
