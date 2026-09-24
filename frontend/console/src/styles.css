@@ -587,9 +587,53 @@ textarea:focus-visible {
 .btn.danger { color: var(--bad); border-color: color-mix(in srgb, var(--bad) 45%, transparent); background: color-mix(in srgb, var(--bad) 9%, transparent); }
 .btn.danger:hover:not(:disabled) { border-color: var(--bad); box-shadow: 0 0 0 3px color-mix(in srgb, var(--bad) 14%, transparent); }
 
+/* --- Deals: stage chip, detail, lines --- */
+/* The chip carries its stage colour in one custom property; the server's stage string is the key. */
+.stage-chip {
+  --stage: var(--muted);
+  display: inline-flex; align-items: center; gap: 6px; padding: 2px 9px 2px 7px;
+  border-radius: 999px; font-size: 12px; font-weight: 500; letter-spacing: .01em; text-transform: capitalize;
+  color: color-mix(in srgb, var(--stage) 80%, var(--text));
+  border: 1px solid color-mix(in srgb, var(--stage) 40%, transparent);
+  background: color-mix(in srgb, var(--stage) 10%, transparent);
+  transition: background-color .2s ease, border-color .2s ease, box-shadow .25s ease;
+}
+.stage-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--stage); }
+.stage-chip[data-stage="qualified"] { --stage: var(--accent-2); }
+.stage-chip[data-stage="quoted"] { --stage: color-mix(in srgb, var(--accent) 50%, var(--accent-2)); }
+.stage-chip[data-stage="negotiation"] { --stage: var(--accent); }
+.stage-chip[data-stage="won"] { --stage: var(--ok); }
+.stage-chip[data-stage="lost"] { --stage: var(--bad); }
+.data-grid tbody tr:hover .stage-chip,
+.data-grid tbody tr[data-selected="true"] .stage-chip { border-color: color-mix(in srgb, var(--stage) 65%, transparent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--stage) 12%, transparent); }
+/* An open (non-terminal) deal's dot breathes — quiet, low-amplitude life. */
+.stage-chip:not([data-stage="won"]):not([data-stage="lost"]) .stage-dot { animation: breathe 3.2s ease-in-out infinite; }
+
+.deal-detail { display: flex; flex-direction: column; }
+.deal-title { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 4px 0 2px; }
+.deal-title h3 { margin: 0; font-family: var(--font-display); font-size: 18px; font-weight: 600; }
+.kv { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 14px; margin: 0 0 16px; }
+.kv > div { min-width: 0; }
+.kv dt { color: var(--muted); font-size: 11.5px; letter-spacing: .02em; margin-bottom: 2px; }
+.kv dd { margin: 0; font-size: 13.5px; overflow: hidden; text-overflow: ellipsis; }
+
+.lines h4, .add-line h4 { margin: 0 0 8px; font-size: 13px; font-weight: 600; display: flex; align-items: baseline; gap: 8px; }
+.lines-table { width: 100%; border-collapse: collapse; font-size: 12.5px; margin-bottom: 4px; }
+.lines-table th { text-align: left; color: var(--muted); font-weight: 500; font-size: 11.5px; padding: 6px 6px; border-bottom: 1px solid var(--glass-border); }
+.lines-table td { padding: 7px 6px; border-bottom: 1px solid color-mix(in srgb, var(--glass-border) 60%, transparent); }
+.lines-table .num { text-align: right; font-variant-numeric: tabular-nums; }
+.lines-table .sub-cell { color: var(--muted); }
+.lines-table tbody tr { transition: background-color .2s ease; animation: row-in .3s cubic-bezier(.2, .7, .2, 1) both; }
+.lines-table tbody tr:hover { background: color-mix(in srgb, var(--accent) 7%, transparent); }
+.lines-table tfoot th { text-align: right; padding: 8px 6px; font-weight: 500; color: var(--muted); border: 0; }
+.lines-table tfoot td { padding: 8px 6px; font-weight: 600; border: 0; }
+.add-line { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--glass-border); }
+.form-hint { margin: 10px 0 0; font-size: 12.5px; }
+
 /* Reduced motion: the surface stays alive in colour and light, but nothing moves. */
 @media (prefers-reduced-motion: reduce) {
-  .screen, .data-grid tbody tr, .side-panel, .notice, .skeleton-row, .lock-glyph, .pulse-dot, .confirm-pair { animation: none; }
+  .screen, .data-grid tbody tr, .side-panel, .notice, .skeleton-row, .lock-glyph, .pulse-dot, .confirm-pair, .stage-dot, .lines-table tbody tr { animation: none; }
+  .stage-chip, .lines-table tbody tr { transition: none; }
   .switch-track, .switch-track::after { transition: none; }
   .btn, .btn.primary, .icon-btn, .row-mark, nav a { transition: none; }
   .btn:hover:not(:disabled), .icon-btn:hover, nav a:hover { transform: none; }
