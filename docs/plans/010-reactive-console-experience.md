@@ -375,7 +375,7 @@ This is about 9 files across API, config, and console. It is acceptable as one s
 **Tests:** detail includes lines while grid omits them; add-line refetches detail; pagination (edge 11).
 **Risk:** medium
 
-### [ ] P7 — Deal lifecycle: transition + discount approval
+### [x] P7 — Deal lifecycle: transition + discount approval
 **Touches:** `screens/deals/lifecycle/*`, `data/useDeals.ts` (transition + approve mutations), tests.
 **Done when:** the detail offers the lifecycle moves and treats the server as authority — `422` shows the rejected move with the server message, `409` shows stale + refetch, and the `200 + PendingApproval` discount-hold renders a distinct "pending approval" state with an approve control shown **only** for `deals.discount.approve` holders; approval sends a required reason. Optimistic update layered in only for the reversible transitions with rollback-on-error. **Correct in both light and dark themes**; reduced-motion/degrade Done-when holds. Browser-verified.
 **Tests:** edges 8 (discount hold + gated approve), 9 (illegal 422), 7-style 409 on transition; approve-without-reason blocked client-side and server 400 surfaced.
