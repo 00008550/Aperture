@@ -1,3 +1,4 @@
+using Aperture.SharedKernel.Domain;
 using Aperture.SharedKernel.Multitenancy;
 
 namespace Aperture.Modules.Sales.Domain;
@@ -70,14 +71,14 @@ public sealed class DealLine : ITenantOwned
 
     private static string Require(string value, string paramName) =>
         string.IsNullOrWhiteSpace(value)
-            ? throw new ArgumentException($"{paramName} is required.", paramName)
+            ? throw new DomainValidationException(paramName, $"{paramName} is required.")
             : value.Trim();
 
     private static decimal NonNegative(decimal value, string paramName) =>
-        value < 0 ? throw new ArgumentOutOfRangeException(paramName, value, "Must not be negative.") : value;
+        value < 0 ? throw new DomainValidationException(paramName, $"{paramName} must not be negative.") : value;
 
     private static int Positive(int value, string paramName) =>
-        value <= 0 ? throw new ArgumentOutOfRangeException(paramName, value, "Must be greater than zero.") : value;
+        value <= 0 ? throw new DomainValidationException(paramName, $"{paramName} must be greater than zero.") : value;
 
     private static string? Trimmed(string? value) =>
         string.IsNullOrWhiteSpace(value) ? null : value.Trim();

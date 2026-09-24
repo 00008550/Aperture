@@ -1,4 +1,5 @@
 using Aperture.SharedKernel.Authorization;
+using Aperture.SharedKernel.Domain;
 using Aperture.SharedKernel.Multitenancy;
 
 namespace Aperture.Modules.Sales.Domain;
@@ -133,7 +134,7 @@ public sealed class Contact : ITenantOwned, IScopedResource
 
     private static string Require(string value, string paramName) =>
         string.IsNullOrWhiteSpace(value)
-            ? throw new ArgumentException($"{paramName} is required.", paramName)
+            ? throw new DomainValidationException(paramName, $"{paramName} is required.")
             : value.Trim();
 
     private static string? Trimmed(string? value) =>

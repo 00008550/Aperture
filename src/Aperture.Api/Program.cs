@@ -3,6 +3,7 @@ using Aperture.Api.Authentication;
 using Aperture.Api.Authorization;
 using Aperture.Api.Development;
 using Aperture.Api.Endpoints;
+using Aperture.Api.Errors;
 using Aperture.Modules.Access;
 using Aperture.Modules.Sales;
 using Aperture.SharedKernel.Data;
@@ -75,6 +76,12 @@ builder.Services.AddAperturePermissionAuthorization();
 // makes a rolling deploy fail safely (ARCHITECTURE.md §10).
 builder.Services.AddHealthChecks();
 
+// Errors are contracts (ARCHITECTURE.md §5): one handler turns an aggregate's DomainValidationException into a
+// 400 ValidationProblemDetails and every other escaped exception into an opaque 500 ProblemDetails with a
+// traceId. AddProblemDetails makes every body application/problem+json and stamps that traceId.
+builder.Services.AddProblemDetails();
+builder.Services.AddExceptionHandler<ApiExceptionHandler>();
+
 if (builder.Environment.IsDevelopment())
 {
     builder.Services.AddScoped<DemoSeed>();
@@ -87,6 +94,10 @@ if (DemoSeedCommand.Decide(args, app.Environment, app.Logger) is DemoSeedDecisio
     // Seed, then exit. The seed never also serves.
     return await DemoSeedCommand.RunAsync(app.Services, app.Logger);
 }
+
+// Outermost, so nothing below it — authentication, tenancy, authorization, endpoints — can leak an exception
+// to the wire unmapped.
+app.UseExceptionHandler();
 
 app.UseAuthentication();
 
