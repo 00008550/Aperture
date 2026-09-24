@@ -43,4 +43,19 @@ internal static partial class AuthenticationLog
         Level = LogLevel.Warning,
         Message = "Authentication denied: the bearer token failed validation ({FailureType}).")]
     public static partial void TokenRejected(ILogger logger, string failureType);
+
+    /// <summary>A Development-only token was minted (010-P5a). Ids only — never the token.</summary>
+    [LoggerMessage(
+        EventId = 1004,
+        Level = LogLevel.Information,
+        Message = "Development token minted for subject {Subject} in tenant {TenantId}.")]
+    public static partial void DevTokenMinted(ILogger logger, Guid subject, Guid tenantId);
+
+    /// <summary>A Development-only token request was refused. The wire answer is a uniform 404; the
+    /// reason is not logged either, so the log cannot be used to enumerate users or tenants.</summary>
+    [LoggerMessage(
+        EventId = 1005,
+        Level = LogLevel.Information,
+        Message = "Development token request refused.")]
+    public static partial void DevTokenRefused(ILogger logger);
 }

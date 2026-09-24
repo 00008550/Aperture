@@ -1,12 +1,25 @@
 using System.Diagnostics;
 using Aperture.Api.Authentication;
 using Aperture.Api.Authorization;
+using Aperture.Api.Development;
 using Aperture.Api.Endpoints;
 using Aperture.Modules.Access;
 using Aperture.Modules.Sales;
 using Aperture.SharedKernel.Data;
 
-var builder = WebApplication.CreateBuilder(args);
+// `--seed-demo` (010-P5a) is this host's own switch, not configuration: strip it before the builder sees it.
+var builder = WebApplication.CreateBuilder(DemoSeedCommand.HostArgs(args));
+
+// Decided before anything is composed or connected: outside Development the flag is refused here, so a
+// refused seed provably touches no database.
+using (var bootLoggers = LoggerFactory.Create(logging => logging.AddConsole()))
+{
+    if (DemoSeedCommand.Decide(args, builder.Environment, bootLoggers.CreateLogger("Aperture.Api.DemoSeed"))
+        is DemoSeedDecision.Refuse)
+    {
+        return DemoSeedCommand.RefusedExitCode;
+    }
+}
 
 // The EF owner connection: the role that owns the schemas, runs migrations, and bypasses RLS.
 var ownerConnectionString =
@@ -62,7 +75,18 @@ builder.Services.AddAperturePermissionAuthorization();
 // makes a rolling deploy fail safely (ARCHITECTURE.md §10).
 builder.Services.AddHealthChecks();
 
+if (builder.Environment.IsDevelopment())
+{
+    builder.Services.AddScoped<DemoSeed>();
+}
+
 var app = builder.Build();
+
+if (DemoSeedCommand.Decide(args, app.Environment, app.Logger) is DemoSeedDecision.Seed)
+{
+    // Seed, then exit. The seed never also serves.
+    return await DemoSeedCommand.RunAsync(app.Services, app.Logger);
+}
 
 app.UseAuthentication();
 
@@ -82,7 +106,15 @@ app.MapAccountEndpoints();
 app.MapContactEndpoints();
 app.MapDealEndpoints();
 
-app.Run();
+// Development only, structurally: outside Development these routes are never mapped, so they do not
+// exist — a 404 by absence, not a policy a misconfiguration could open. See DevEndpoints.
+if (app.Environment.IsDevelopment())
+{
+    app.MapDevEndpoints();
+}
+
+await app.RunAsync();
+return 0;
 
 /// <summary>Exposed so integration tests can host the API with WebApplicationFactory.</summary>
 public partial class Program;

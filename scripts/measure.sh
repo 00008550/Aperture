@@ -225,7 +225,12 @@ gate() {
     # RLS reader role and per-read session context, proven by ScopedConnectionRlsTests, not
     # by a nearby literal. That is the whole point of the wrapper; grepping it for "tenant"
     # would demand the fail-open string composition the wrapper exists to remove.
-  done < <(grep -rn --include=*.cs -E 'FromSql(Raw|Interpolated)?|ExecuteSql(Raw|Interpolated)?|\.Query(Async|First|FirstAsync|Single|SingleAsync|Multiple)?<|Dapper' src 2>/dev/null | grep -v '\.Tests/' | grep -vE "$RAWSQL_SANCTIONED")
+    # The Development demo seed (010-P5a) is exempt by exact file path, not directory: its two
+    # ExecuteSqlAsync calls are a cluster-level `ALTER ROLE` setting the dev aperture_reader
+    # password (bound param + format %L/%I). They touch no tenant rows, and the seed is
+    # unreachable outside Development. Any other file under Development/ is still gated.
+  done < <(grep -rn --include=*.cs -E 'FromSql(Raw|Interpolated)?|ExecuteSql(Raw|Interpolated)?|\.Query(Async|First|FirstAsync|Single|SingleAsync|Multiple)?<|Dapper' src 2>/dev/null | grep -v '\.Tests/' | grep -vE "$RAWSQL_SANCTIONED" \
+    | grep -v '^src/Aperture\.Api/Development/DemoSeed\.cs:')
   if [ "$leaked" -gt 0 ]; then
     printf '  FAIL: %d raw SQL call(s) with no visible tenant predicate\n' "$leaked"
     failures=$((failures + 1))

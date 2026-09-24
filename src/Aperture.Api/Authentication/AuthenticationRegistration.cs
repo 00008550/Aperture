@@ -24,6 +24,11 @@ public static class AuthenticationRegistration
         configuration.GetSection(ApertureJwtOptions.SectionName).Bind(options);
         options.Validate();
 
+        // The validated options, as the one instance anything that signs must use. The Development
+        // token endpoint (010-P5a) mints with exactly these values, so there is no second key and no
+        // second validation path to drift from the bearer handler below.
+        services.AddSingleton(options);
+
         services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             .AddJwtBearer(jwt =>
             {
