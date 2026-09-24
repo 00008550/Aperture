@@ -3,6 +3,7 @@ import { Navigate, Route, Routes } from 'react-router';
 import { NAV_ITEMS } from '../Navigation';
 import { Permissions, type Permission } from '../permissions';
 import { AccountsScreen } from '../screens/accounts/AccountsScreen';
+import { ContactsScreen } from '../screens/contacts/ContactsScreen';
 import { useSession } from '../useSession';
 
 /**
@@ -61,6 +62,9 @@ function NotYetBuilt({ label }: { label: string }) {
   );
 }
 
+/** Sections with a real screen; every other nav item keeps its gated placeholder. */
+const BUILT_SCREENS = new Set(['/accounts', '/contacts']);
+
 export interface ConsoleRoutesProps {
   /** The Overview content — the session panels the shell showed before routing existed. */
   overview: ReactNode;
@@ -86,7 +90,15 @@ export function ConsoleRoutes({ overview }: ConsoleRoutesProps) {
           </RequirePermission>
         }
       />
-      {NAV_ITEMS.filter((item) => item.path !== '/accounts').map((item) => (
+      <Route
+        path="contacts"
+        element={
+          <RequirePermission permission={Permissions.ContactsRead}>
+            <ContactsScreen />
+          </RequirePermission>
+        }
+      />
+      {NAV_ITEMS.filter((item) => !BUILT_SCREENS.has(item.path)).map((item) => (
         <Route
           key={item.path}
           path={item.path.slice(1)}

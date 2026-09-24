@@ -260,7 +260,7 @@ Contacts, Deals (grid + detail + lifecycle), all floating on the block-field, al
 **Tests:** edges 5, 7, 10; permission-denied route guard issues no GET (edge 6); grid pagination (edge 11); route guard denies fail-closed when `can()` is unresolved.
 **Risk:** medium
 
-### [ ] P5 — Contacts screen
+### [x] P5 — Contacts screen
 **Touches:** `screens/contacts/*`, router wiring, tests.
 **Done when:** Contacts grid (gated `contacts.read`) with create-under-account (`contacts.write`) and depart; departed contacts leave the active list but appear under `includeDeparted`, marked departed. Controls carry quiet-but-alive micro-interactions. **Correct in both light and dark themes**; reduced-motion/degrade Done-when holds. Browser-verified.
 **Tests:** edge 12 (depart is not delete); create validates account-in-scope failure (404 surfaced); double-submit guarded (edge 10).
