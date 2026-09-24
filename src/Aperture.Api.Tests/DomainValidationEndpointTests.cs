@@ -297,6 +297,31 @@ public sealed class DomainValidationEndpointTests(ApiFixture api)
             e.Category == typeof(ApiExceptionHandler).FullName && e.Level == LogLevel.Error);
     }
 
+    // 011-P2 added item (2026-09-24): an Accept that excludes JSON must not turn the 500 into an empty one
+    // (the problem-details writer refuses it; the handler falls back to problem+json regardless).
+    [Fact]
+    public async Task An_unexpected_exception_with_Accept_text_html_is_still_an_opaque_500_problem()
+    {
+        var seeded = await Writer("v-fault-html");
+        await using var faulty = api.Factory.WithWebHostBuilder(host => host.ConfigureTestServices(services =>
+            services.AddScoped<IDealService>(_ => ThrowingProxy<IDealService>.Create())));
+        using var client = Client(seeded, faulty.CreateClient());
+        using var request = new HttpRequestMessage(HttpMethod.Get, new Uri("/api/deals", UriKind.Relative));
+        request.Headers.Accept.ParseAdd("text/html");
+
+        using var response = await client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.InternalServerError, response.StatusCode);
+        Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
+        var raw = await response.Content.ReadAsStringAsync();
+        Assert.DoesNotContain("secret detail", raw, StringComparison.Ordinal);
+        Assert.DoesNotContain("db-internal-7", raw, StringComparison.Ordinal);
+        AssertNothingLeaks(raw);
+        using var json = JsonDocument.Parse(raw);
+        Assert.Equal(500, json.RootElement.GetProperty("status").GetInt32());
+        Assert.False(string.IsNullOrWhiteSpace(json.RootElement.GetProperty("traceId").GetString()));
+    }
+
     // ---- Edge 9: authorization precedes validation ------------------------------------------------
 
     [Fact]
