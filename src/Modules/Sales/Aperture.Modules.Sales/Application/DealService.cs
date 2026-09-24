@@ -1,8 +1,10 @@
+using System.Globalization;
 using System.Text;
 using Aperture.Modules.Sales.Domain;
 using Aperture.Modules.Sales.Persistence;
 using Aperture.SharedKernel.Authorization;
 using Aperture.SharedKernel.Data;
+using Aperture.SharedKernel.Domain;
 using Microsoft.EntityFrameworkCore;
 
 namespace Aperture.Modules.Sales.Application;
@@ -409,15 +411,28 @@ internal sealed class DealService : IDealService
             return (false, default, default);
         }
 
-        var text = Encoding.UTF8.GetString(Convert.FromBase64String(cursor));
+        // A cursor is caller input like any other: every way it can fail to be one this service minted
+        // (not base64, no separator, unparsable ticks or id, ticks outside DateTimeOffset's range) is the
+        // caller's 400 on "cursor" (§5 "Errors are contracts"), never a 500.
+        var bytes = new byte[(cursor.Length * 3 / 4) + 3];
+        if (!Convert.TryFromBase64String(cursor, bytes, out var written))
+        {
+            throw MalformedCursor();
+        }
+
+        var text = Encoding.UTF8.GetString(bytes, 0, written);
         var separator = text.IndexOf(':', StringComparison.Ordinal);
         if (separator <= 0
-            || !long.TryParse(text[..separator], out var ticks)
-            || !Guid.TryParse(text[(separator + 1)..], out var id))
+            || !long.TryParse(text[..separator], NumberStyles.None, CultureInfo.InvariantCulture, out var ticks)
+            || !Guid.TryParse(text[(separator + 1)..], out var id)
+            || ticks > DateTimeOffset.MaxValue.UtcTicks)
         {
-            throw new ArgumentException("The pagination cursor is malformed.", nameof(cursor));
+            throw MalformedCursor();
         }
 
         return (true, new DateTimeOffset(ticks, TimeSpan.Zero), id);
     }
+
+    private static DomainValidationException MalformedCursor() =>
+        new("cursor", "The pagination cursor is malformed; pass back a nextCursor exactly as returned.");
 }

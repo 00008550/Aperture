@@ -1,3 +1,5 @@
+using System.Diagnostics;
+using System.Text.Json;
 using Aperture.SharedKernel.Domain;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
@@ -17,7 +19,8 @@ namespace Aperture.Api.Errors;
 /// title. The exception's message, type and stack go to the log, never to the body — they name internals a
 /// caller has no business learning.</item>
 /// </list>
-/// Every body goes through <see cref="IProblemDetailsService"/>, so it is <c>application/problem+json</c> and
+/// Every body goes through <see cref="IProblemDetailsService"/> (or, when the caller's <c>Accept</c> excludes JSON,
+/// is written as the same problem+json directly, so the status never degrades), so it is <c>application/problem+json</c> and
 /// carries the same <c>traceId</c> (<c>Activity.Current?.Id ?? TraceIdentifier</c>) the log line does.
 /// Authorization has already run by the time any of this can throw: a caller without the write permission
 /// is refused before its body is bound, so it learns nothing about the rules.
@@ -69,11 +72,31 @@ internal sealed partial class ApiExceptionHandler(
         httpContext.Response.StatusCode = body.Status!.Value;
 
         // Exception deliberately NOT passed to the context: nothing downstream of here may render it.
-        return await problemDetails.TryWriteAsync(new ProblemDetailsContext
+        if (await problemDetails.TryWriteAsync(new ProblemDetailsContext
         {
             HttpContext = httpContext,
             ProblemDetails = body,
-        });
+        }))
+        {
+            return true;
+        }
+
+        // No registered writer accepted the request's Accept header (e.g. text/html). Returning false here
+        // would let the middleware rethrow and turn even a 400 into an empty 500, so the status would lie.
+        // The status is the contract: write the same body as problem+json anyway — RFC 9110 §12.5.1 lets a
+        // server disregard Accept rather than answer 406, and this body is already the generic, internals-free
+        // one built above, so ignoring the preference cannot leak anything.
+        // Mirror the defaults the problem-details writer would have applied, so both paths yield one shape.
+        body.Type ??= body.Status switch
+        {
+            400 => "https://tools.ietf.org/html/rfc9110#section-15.5.1",
+            500 => "https://tools.ietf.org/html/rfc9110#section-15.6.1",
+            _ => null,
+        };
+        body.Extensions["traceId"] =Activity.Current?.Id ?? httpContext.TraceIdentifier;
+        await httpContext.Response.WriteAsJsonAsync<object>(
+            body, JsonSerializerOptions.Web, "application/problem+json", cancellationToken);
+        return true;
     }
 
     [LoggerMessage(Level = LogLevel.Information, Message = "Request rejected: invalid {ValidationField} on {Route}")]
