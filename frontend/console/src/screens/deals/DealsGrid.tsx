@@ -127,7 +127,11 @@ function Rows({
 
   return (
     <section className="card data-grid-card" data-grid-state="rows">
-      <table className="data-grid" aria-label="Deals">
+      {/* The grid's name is its aria-label; how to use a row is its description (010-P8). */}
+      <p id="deals-grid-hint" className="visually-hidden">
+        Each row opens its deal. Focus a row with Tab, then press Enter or Space.
+      </p>
+      <table className="data-grid" aria-label="Deals" aria-describedby="deals-grid-hint">
         <thead>
           <tr>
             <th scope="col">Name</th>
@@ -148,6 +152,9 @@ function Rows({
             return (
               <tr
                 key={deal.id}
+                // A focused row is announced by this name (Chrome computes none for a table row), so
+                // a keyboard user hears which record Enter would open and where it stands (010-P8).
+                aria-label={`${deal.name}, ${deal.stage}${deal.pendingApproval ? ', held for approval' : ''}`}
                 tabIndex={0}
                 aria-selected={selected}
                 data-selected={selected}

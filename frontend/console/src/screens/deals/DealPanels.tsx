@@ -19,6 +19,7 @@ import {
   type DealDraft,
   type LineDraft,
 } from './formModel';
+import { GuardedButton } from '../../a11y/GuardedButton';
 
 function Panel({
   title,
@@ -158,14 +159,14 @@ export function CreateDealPanel({
         )}
 
         <div className="form-actions">
-          <button
+          <GuardedButton
             type="submit"
             className="btn primary"
             disabled={disabled}
-            title={canWrite ? undefined : `Requires ${Permissions.DealsWrite}`}
+            deniedReason={canWrite ? null : `Requires ${Permissions.DealsWrite}`}
           >
             {create.isPending ? 'Creating…' : 'Create deal'}
-          </button>
+          </GuardedButton>
           <button type="button" className="btn ghost" onClick={onClose}>
             Cancel
           </button>
@@ -421,14 +422,14 @@ function AddLineForm({ dealId, canWrite }: { dealId: string; canWrite: boolean }
       )}
 
       <div className="form-actions">
-        <button
+        <GuardedButton
           type="submit"
           className="btn primary"
           disabled={disabled}
-          title={canWrite ? undefined : `Requires ${Permissions.DealsWrite}`}
+          deniedReason={canWrite ? null : `Requires ${Permissions.DealsWrite}`}
         >
           {add.isPending ? 'Adding…' : 'Add line'}
-        </button>
+        </GuardedButton>
       </div>
     </form>
   );

@@ -298,7 +298,7 @@ describe('Account create', () => {
 
     const button = await screen.findByRole('button', { name: 'New account' });
     expect(button).toBeDisabled();
-    expect(button).toHaveAttribute('title', `Requires ${Permissions.AccountsWrite}`);
+    expect(button).toHaveAccessibleDescription(`Requires ${Permissions.AccountsWrite}`);
   });
 });
 

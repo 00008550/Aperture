@@ -5,6 +5,7 @@ import { Permissions } from '../../permissions';
 import { useSession } from '../../useSession';
 import { AccountsGrid } from './AccountsGrid';
 import { CreateAccountPanel, EditAccountPanel } from './AccountForms';
+import { GuardedButton } from '../../a11y/GuardedButton';
 
 /** Rows per keyset page. */
 export const ACCOUNTS_PAGE_SIZE = 25;
@@ -36,18 +37,18 @@ export function AccountsScreen() {
             Customers in your scopes, from <span className="mono">GET /api/accounts</span>.
           </p>
         </div>
-        <button
+        <GuardedButton
           type="button"
           className="btn primary"
           disabled={!canWrite}
-          title={canWrite ? undefined : `Requires ${Permissions.AccountsWrite}`}
+          deniedReason={canWrite ? null : `Requires ${Permissions.AccountsWrite}`}
           onClick={() => {
             setCreating(true);
             if (accountId) navigate('/accounts');
           }}
         >
           New account
-        </button>
+        </GuardedButton>
       </header>
 
       <div className="screen-body" data-panel-open={panelOpen}>

@@ -111,7 +111,11 @@ function Rows({
 
   return (
     <section className="card data-grid-card" data-grid-state="rows">
-      <table className="data-grid" aria-label="Accounts">
+      {/* The grid's name is its aria-label; how to use a row is its description (010-P8). */}
+      <p id="accounts-grid-hint" className="visually-hidden">
+        Each row opens its account. Focus a row with Tab, then press Enter or Space.
+      </p>
+      <table className="data-grid" aria-label="Accounts" aria-describedby="accounts-grid-hint">
         <thead>
           <tr>
             <th scope="col">Name</th>
@@ -131,6 +135,9 @@ function Rows({
             return (
               <tr
                 key={account.id}
+                // A focused row is announced by this name (Chrome computes none for a table row), so
+                // a keyboard user hears which record Enter would open (010-P8).
+                aria-label={account.name}
                 tabIndex={0}
                 aria-selected={selected}
                 data-selected={selected}

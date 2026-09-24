@@ -97,11 +97,21 @@ export default function DevSignInPicker() {
                   className="dev-picker-user"
                   disabled={pending !== null}
                   aria-busy={pending === user.userId}
+                  // An explicit name: the button's content also carries the demo label and the
+                  // email, which belong in the description, not in the name announced first.
+                  aria-label={`Sign in as ${user.displayName}`}
+                  aria-describedby={`dev-user-${user.userId}-label dev-user-${user.userId}-email`}
                   onClick={() => mint.mutate(user)}
                 >
-                  <span className="dev-picker-name">Sign in as {user.displayName}</span>
-                  <span className="dev-picker-label">{user.demonstrates}</span>
-                  <span className="dev-picker-email mono">{user.email}</span>
+                  <span className="dev-picker-name" aria-hidden="true">
+                    Sign in as {user.displayName}
+                  </span>
+                  <span className="dev-picker-label" id={`dev-user-${user.userId}-label`}>
+                    {user.demonstrates}
+                  </span>
+                  <span className="dev-picker-email mono" id={`dev-user-${user.userId}-email`}>
+                    {user.email}
+                  </span>
                 </button>
               </li>
             ))}

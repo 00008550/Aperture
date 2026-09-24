@@ -23,7 +23,6 @@ function ThemeToggle() {
       className="theme-toggle"
       onClick={() => toggleTheme()}
       aria-label={`Switch to ${next} theme`}
-      title={`Switch to ${next} theme`}
     >
       <span className="glyph" aria-hidden="true">
         {theme === 'dark' ? '◑' : '◐'}
