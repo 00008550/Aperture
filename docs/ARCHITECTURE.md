@@ -114,6 +114,12 @@ was never selected cannot leak through a serialization change.
 - **Optimistic concurrency** by default: `xmin` as a concurrency token, a conflict surfaces as
   `409` with the current state so the client can re-apply. Cheap and correct for the contention level
   the domain has.
+- **Errors are contracts.** A request that violates an aggregate's input rule is a `400`
+  `ValidationProblemDetails` naming the field — raised as `DomainValidationException` by the aggregate,
+  mapped by one host `IExceptionHandler`, never re-validated at the endpoint. A well-formed request the
+  current state forbids is a `422`; a lost concurrency race is a `409` with current state. Anything
+  else is a `500` ProblemDetails carrying a `traceId` and no exception detail. The assistant (§9)
+  depends on this: it can only self-correct from a 400 that says what was wrong.
 - **Pessimistic where the domain is genuinely contended**: stock reservation takes
   `SELECT ... FOR UPDATE` on the stock row. Two agents confirming the last unit is a documented,
   frequent event (`DOMAIN.md` §2), and optimistic retry there converts a lost update into a

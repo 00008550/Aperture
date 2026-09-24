@@ -1,6 +1,6 @@
 # 011 — Hardening follow-ups (Sales API errors, deal-line integrity, read-model names, a11y, detector drift)
 
-Status: draft            <!-- draft → approved → in-progress → done -->
+Status: approved         <!-- draft → approved → in-progress → done -->
 Roadmap: ARCHITECTURE.md §13 — interstitial hardening between 010 (done) and 003 (draft); no new capability
 Measured: 2026-09-24 on `master` @ 231c593 (branch `docs/011-hardening-plan`)
 
@@ -190,6 +190,18 @@ and the per-field `errors` map — a 400 `ValidationProblemDetails` needs no con
 **Risk:** low — but a widened architecture test may flag something new in `src/`; if it does, that is a finding to report, not to exempt.
 
 ## Open questions for the user
+
+**Resolved 2026-09-24 — the user approved the plan and answered every question below:**
+(1) add-line after quote is **allowed**: once a price-list version is frozen, a new line must use it
+(none → stamped, different → 422); `won`/`lost` reject new lines (422) — P3 builds to this.
+(2) `accountName` is **shown** to callers who can read the contact/deal even without `accounts.read`
+(it only appears where the account is in the caller's scope) — P4 builds to this.
+(3) error-body unification (`{error}` → ProblemDetails for 404/409/422) is **Deferred** — trigger: the
+first new module's endpoints (003) or the assistant's tool contracts (007), whichever lands first.
+(4) the §5 "Errors are contracts" addition is **approved and applied** to `docs/ARCHITECTURE.md` §5
+verbatim as proposed below.
+(5) the React duplicate-key warnings get no portion; the builder watches for them during the P5/P6
+browser verification and reports any reproduction. Build to these answers.
 
 1. **Add-line after quote (product call, blocks P3).** Recommended: allowed in `new`/`qualified`/`quoted`/`negotiation`; once a version is frozen, the line must use it (none → stamped, different → 422); `won`/`lost` → 422. Alternative: forbid add-line from `quoted` onward entirely (a changed quote must go back through a re-quote). Which is the business rule?
 2. **`accountName` for callers without `accounts.read` (blocks P4).** A role with `deals.read` but not `accounts.read` would now see account *names* on deals it can already see (it already sees the `accountId`). Recommended: acceptable — the name is a label on a record the caller may read, like a CRM "account" column — but it is a permission-surface change, so it is yours. Alternative: return `accountName` only when the principal holds `accounts.read` (endpoint masks it).
