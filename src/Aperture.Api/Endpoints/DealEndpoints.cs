@@ -114,6 +114,13 @@ public static class DealEndpoints
         {
             DealLineAddStatus.Added => Results.Ok(result.Deal),
             DealLineAddStatus.DealNotFound => Results.NotFound(),
+            // Stale expectedVersion or a lost xmin race: 409 with the current deal so the caller re-applies.
+            DealLineAddStatus.Conflict => Results.Conflict(result.Deal),
+            // Well-formed requests the deal's state forbids (DOMAIN.md §2 rules 1–2): unprocessable (422).
+            DealLineAddStatus.DealClosed => Results.UnprocessableEntity(
+                new { error = "Cannot add a line to a closed deal." }),
+            DealLineAddStatus.PriceListVersionMismatch => Results.UnprocessableEntity(
+                new { error = "This deal's price-list version is frozen; a new line must use the frozen version." }),
             _ => Results.Problem("Unexpected add-line outcome."),
         };
     }

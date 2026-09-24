@@ -222,6 +222,17 @@ public sealed class PostgresFixture : IAsyncLifetime
             new DbContextOptionsBuilder<SalesDbContext>().UseSalesNpgsql(ConnectionString).Options,
             new FixedTenantContext(tenant));
 
+    /// <summary>A context with EF interceptors attached — for tests that must inject a competing writer
+    /// between a service's load and its commit.</summary>
+    public SalesDbContext CreateContext(
+        TenantId tenant, params Microsoft.EntityFrameworkCore.Diagnostics.IInterceptor[] interceptors) =>
+        new(
+            new DbContextOptionsBuilder<SalesDbContext>()
+                .UseSalesNpgsql(ConnectionString)
+                .AddInterceptors(interceptors)
+                .Options,
+            new FixedTenantContext(tenant));
+
     /// <summary>Seeds a probe row through the owner connection (which bypasses RLS), so the reader-role
     /// read under test is the only thing the policy is filtering.</summary>
     public async Task SeedProbeRowAsync(

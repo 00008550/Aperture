@@ -188,10 +188,11 @@ public sealed class DealStateMachineTests(PostgresFixture postgres)
         Assert.Equal("v1", deal!.FrozenPriceListVersion);
         Assert.All(deal.Lines, l => Assert.Equal("v1", l.PriceListVersion));
 
-        // A later price-list change (a new line added on a newer version after the freeze) does not touch the
-        // frozen snapshot — the outstanding quote still references v1.
-        await DealsFor(tenant, out _).AddLineAsync(
+        // A later price-list change (a new line on a newer version after the freeze) is refused (011-P3), so
+        // the frozen snapshot is untouched — the outstanding quote still references v1.
+        var later = await DealsFor(tenant, out _).AddLineAsync(
             scopes, dealId, new AddDealLineRequest("SKU-2", 50m, 1, "v2"));
+        Assert.Equal(DealLineAddStatus.PriceListVersionMismatch, later.Status);
         var reread = await DealsFor(tenant, out _).GetAsync(scopes, dealId);
         Assert.Equal("v1", reread!.FrozenPriceListVersion);
     }

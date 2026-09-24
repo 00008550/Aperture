@@ -160,7 +160,7 @@ and the per-field `errors` map — a 400 `ValidationProblemDetails` needs no con
 **Risk:** low.
 **Added 2026-09-25 (orchestrator-approved P1 reviewer follow-up):** `ApiExceptionHandler` keeps the right status (400 validation/cursor, BadHttpRequest passthrough, 500 otherwise) when `Accept` excludes JSON — falls back to writing the same internals-free problem+json instead of rethrowing to an empty 500.
 
-### [ ] P3 — Deal-line integrity: stage guard, frozen version, and the deal's `xmin`
+### [x] P3 — Deal-line integrity: stage guard, frozen version, and the deal's `xmin`
 **Touches:** `Sales/Domain/Deal.cs` (`AddLine` outcome + freeze stamping), `Sales/Application/DealService.cs`, `DealModels.cs` (`AddDealLineRequest.ExpectedVersion`, new statuses), `Aperture.Api/Endpoints/DealEndpoints.cs`; `frontend/console/src/data/useDeals.ts` (send `expectedVersion` on add-line, treat 409 like transition's) + its spec; Sales and Api tests.
 **Done when:** add-line on `won`/`lost` → 422; on a frozen deal the line takes the frozen version or 422s on a mismatch; every successful add-line changes the deal's `version`; a stale or raced add-line → 409 with the current deal; the console's add-line sends the version it has.
 **Tests:** edges 10, 12–16 — including the two-context race (edge 15) against real PostgreSQL, as 002-P5's concurrent-transition test does; console spec for 409 on add-line.

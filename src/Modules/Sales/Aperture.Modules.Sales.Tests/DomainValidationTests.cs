@@ -107,7 +107,7 @@ public sealed class DomainValidationTests
     public void Line_accepts_a_zero_unit_price_and_a_quantity_of_one()
     {
         var deal = new Deal(Guid.NewGuid(), NewAccount(), "d", 1m, 0m);
-        var line = deal.AddLine("SKU", 0m, 1, null);
+        var line = deal.AddLine("SKU", 0m, 1, null).Line!;
         Assert.Equal(0m, line.UnitPrice);
         Assert.Equal(1, line.Quantity);
     }

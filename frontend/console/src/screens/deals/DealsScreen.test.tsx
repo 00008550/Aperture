@@ -135,7 +135,12 @@ function dealsServer(initial: DealView[], accounts: AccountView[] = []) {
     if (method === 'POST' && lineMatch) {
       const target = rows.find((row) => row.id === lineMatch[1]);
       if (!target) return json(null, 404);
-      const body = JSON.parse(String(init?.body)) as Omit<DealLineView, 'id' | 'dealId'>;
+      const { expectedVersion, ...body } = JSON.parse(String(init?.body)) as Omit<
+        DealLineView,
+        'id' | 'dealId'
+      > & { expectedVersion?: number | null };
+      // The server's optimistic check (011-P3): a stale version is a 409 carrying the current deal.
+      if (expectedVersion != null && expectedVersion !== target.version) return json(target, 409);
       target.lines.push({ id: `n${nextLine++}`, dealId: target.id, ...body });
       target.version += 1;
       return json(target);
@@ -339,6 +344,7 @@ describe('Add line', () => {
       unitPrice: 7.5,
       quantity: 5,
       priceListVersion: 'PL-9',
+      expectedVersion: 7,
     });
     // Read-your-writes: the detail was fetched again after the write, not patched locally.
     await waitFor(() => expect(requests(fetchMock, 'GET', '/api/deals/d1').length).toBeGreaterThanOrEqual(2));
@@ -371,7 +377,6 @@ describe('Add line', () => {
 
   it.each([
     [400, { title: 'One or more validation errors occurred.', errors: { quantity: ['The quantity field is invalid.'] } }, 'The quantity field is invalid.'],
-    [409, { error: 'The deal changed underneath you.' }, 'The deal changed underneath you.'],
     [422, { error: 'Lines cannot be added to a won deal.' }, 'Lines cannot be added to a won deal.'],
   ])('Given add-line returns %i, when rendered, then the server’s message is surfaced', async (status, body, message) => {
     const server = dealsServer([deal('d1')]);
@@ -388,6 +393,53 @@ describe('Add line', () => {
     expect(await within(form).findByTestId('add-line-failure')).toHaveTextContent(message);
     // The draft is kept so the user can correct and retry.
     expect(within(form).getByLabelText('Product')).toHaveValue('X');
+  });
+
+  it('Given a line was added, when a second line is added, then it is sent with the version the first add returned', async () => {
+    const server = dealsServer([deal('d1')]);
+    const fetchMock = stubFetch(session(), server.route);
+    renderAt('/deals/d1');
+
+    const form = await screen.findByRole('form', { name: 'Add line' });
+    for (const product of ['A-1', 'B-2']) {
+      await userEvent.type(within(form).getByLabelText('Product'), product);
+      await userEvent.type(within(form).getByLabelText('Unit price'), '1');
+      await userEvent.click(within(form).getByRole('button', { name: 'Add line' }));
+      await waitFor(() => expect(within(form).getByLabelText('Product')).toHaveValue(''));
+    }
+
+    const sent = requests(fetchMock, 'POST', '/api/deals/d1/lines').map(
+      ([, init]) => (JSON.parse(String((init as RequestInit).body)) as { expectedVersion: number }).expectedVersion,
+    );
+    expect(sent).toEqual([7, 8]);
+    expect(await screen.findByTestId('line-n2')).toHaveTextContent('B-2');
+    expect(screen.queryByTestId('add-line-failure')).not.toBeInTheDocument();
+  });
+
+  it('Given the deal changed since it was loaded, when add-line answers 409 with the current deal, then the panel shows the current deal, says so, keeps the draft and does not resend', async () => {
+    const server = dealsServer([deal('d1')]);
+    // Another writer quotes the deal and adds a line after this page loaded it: the server now holds a
+    // newer version, so this page's add (sent at the old version) is stale.
+    const fetchMock = stubFetch(session(), (url, init) => {
+      if (init?.method === 'POST') {
+        const held = server.rows[0]!;
+        Object.assign(held, { stage: 'quoted', version: 12, lines: [line('l9', 'd1')] });
+      }
+      return server.route(url, init);
+    });
+    renderAt('/deals/d1');
+
+    const form = await screen.findByRole('form', { name: 'Add line' });
+    await userEvent.type(within(form).getByLabelText('Product'), 'X');
+    await userEvent.type(within(form).getByLabelText('Unit price'), '1');
+    await userEvent.click(within(form).getByRole('button', { name: 'Add line' }));
+
+    expect(await within(form).findByTestId('add-line-failure')).toHaveTextContent(
+      'This deal changed since you loaded it.',
+    );
+    expect(await screen.findByTestId('line-l9')).toBeInTheDocument();
+    expect(within(form).getByLabelText('Product')).toHaveValue('X');
+    expect(requests(fetchMock, 'POST', '/api/deals/d1/lines')).toHaveLength(1);
   });
 
   it('Given the deal vanished from scope, when add-line returns an empty 404, then the panel says the deal is no longer visible', async () => {
@@ -552,6 +604,9 @@ describe('deal form model', () => {
     );
     expect(describeDealError(new ApiError(404, 'x', null), 'add-line').message).toBe(
       'This deal is no longer visible to you.',
+    );
+    expect(describeDealError(new ApiError(409, 'x', deal('d1')), 'add-line').message).toMatch(
+      /changed since you loaded it/,
     );
     expect(describeDealError(new ApiError(422, 'x', { error: 'Nope.' }), 'add-line')).toEqual({
       kind: 'rejected',

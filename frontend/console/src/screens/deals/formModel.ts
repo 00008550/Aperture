@@ -110,8 +110,15 @@ export function describeDealError(error: unknown, mode: 'create' | 'add-line'): 
       return mode === 'create'
         ? { kind: 'gone', message: server ?? 'No account with this id is visible to you.' }
         : { kind: 'gone', message: server ?? 'This deal is no longer visible to you.' };
-    case 400:
     case 409:
+      if (mode === 'add-line') {
+        return {
+          kind: 'rejected',
+          message: 'This deal changed since you loaded it. Review the current deal and add the line again.',
+        };
+      }
+      return { kind: 'rejected', message: server ?? `The API rejected this (${error.status}).` };
+    case 400:
     case 422:
       return { kind: 'rejected', message: server ?? `The API rejected this (${error.status}).` };
     case 401:

@@ -121,15 +121,56 @@ internal sealed class DealService : IDealService
             return new DealLineAddResult(DealLineAddStatus.DealNotFound, null);
         }
 
-        // Add the line to the aggregate, then mark it Added explicitly. The deal was loaded by a query
-        // (tracked, Unchanged); a child appended to a tracked parent's navigation with a client-set Guid
-        // key is otherwise inferred by change detection as an existing row and issued as an UPDATE (which
-        // affects zero rows and throws). Adding it through the DbSet pins the Added state, exactly as the
-        // Account/Contact create paths do.
-        var line = deal.AddLine(
+        // The caller's optimistic pre-check, mirroring the transition path: a stale version is a conflict
+        // before any change. The xmin token then guards the load-to-commit window below.
+        if (request.ExpectedVersion is { } expected && deal.Version != expected)
+        {
+            return new DealLineAddResult(DealLineAddStatus.Conflict, ToView(deal));
+        }
+
+        var addition = deal.AddLine(
             request.ProductRef, request.UnitPrice, request.Quantity, request.PriceListVersion);
-        _db.DealLines.Add(line);
-        await _db.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+
+        switch (addition.Status)
+        {
+            case DealLineAdditionStatus.Added:
+                break;
+            case DealLineAdditionStatus.DealClosed:
+                return new DealLineAddResult(DealLineAddStatus.DealClosed, null);
+            case DealLineAdditionStatus.PriceListVersionMismatch:
+                return new DealLineAddResult(DealLineAddStatus.PriceListVersionMismatch, null);
+            default:
+                // A verdict outside the domain enum is a bug; refuse rather than save (fail closed).
+                throw new InvalidOperationException($"Unexpected add-line verdict {addition.Status}.");
+        }
+
+        // Mark the line Added explicitly. The deal was loaded by a query (tracked, Unchanged); a child
+        // appended to a tracked parent's navigation with a client-set Guid key is otherwise inferred by
+        // change detection as an existing row and issued as an UPDATE (which affects zero rows and throws).
+        // Adding it through the DbSet pins the Added state, exactly as the Account/Contact create paths do.
+        _db.DealLines.Add(addition.Line!);
+
+        // The aggregate is deal + lines, so its concurrency token must cover the lines: force the header
+        // UPDATE (same value) so EF emits `UPDATE sales.deals … WHERE id = @id AND xmin = @version`. That
+        // both moves xmin — a later writer holding the old version loses — and makes this add lose to any
+        // writer (a →quoted freeze, an approval, another add-line) that committed since the load.
+        _db.Entry(deal).Property(d => d.Name).IsModified = true;
+
+        try
+        {
+            await _db.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            var current = await _db.Deals
+                .AsNoTracking()
+                .Include(d => d.Lines)
+                .WhereInScope(scopes)
+                .SingleOrDefaultAsync(d => d.Id == dealId, cancellationToken)
+                .ConfigureAwait(false);
+
+            return new DealLineAddResult(DealLineAddStatus.Conflict, current is null ? null : ToView(current));
+        }
 
         return new DealLineAddResult(DealLineAddStatus.Added, ToView(deal));
     }
