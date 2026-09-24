@@ -1,5 +1,13 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { ApiError, apiAuthed, serverMessageOf, updateAccount } from './api';
+import {
+  ApiError,
+  SESSION_PATH,
+  apiAuthed,
+  isAuthRejection,
+  isNotPermitted,
+  serverMessageOf,
+  updateAccount,
+} from './api';
 import { getAccessToken, setAccessToken } from './auth';
 
 function answer(status: number, body: string | null, contentType = 'application/json') {
@@ -61,6 +69,31 @@ describe('ApiError keeps the response body', () => {
     expect(error.status).toBe(401);
     expect(error.body).toEqual({ title: 'Unauthorized' });
     expect(getAccessToken()).toBeNull();
+  });
+});
+
+describe('credential rejection vs. not permitted', () => {
+  it('Given a policy 403 on a data route, when an authed call fails, then the token survives and the error says not-permitted', async () => {
+    setAccessToken('t');
+    answer(403, null);
+    const error = await failure(apiAuthed('/api/deals/d1/approve-discount', { method: 'POST' }));
+    expect(error.status).toBe(403);
+    expect(isNotPermitted(error)).toBe(true);
+    expect(getAccessToken()).toBe('t');
+  });
+
+  it('Given a 403 on the session read, when /api/me fails, then the token is dropped to sign-in', async () => {
+    setAccessToken('t');
+    answer(403, null);
+    await failure(apiAuthed(SESSION_PATH));
+    expect(getAccessToken()).toBeNull();
+  });
+
+  it('classifies: 401 anywhere and 403 on /api/me are credential rejections; 403 elsewhere is not', () => {
+    expect(isAuthRejection(new ApiError(401, 'x'), '/api/deals')).toBe(true);
+    expect(isAuthRejection(new ApiError(403, 'x'), SESSION_PATH)).toBe(true);
+    expect(isAuthRejection(new ApiError(403, 'x'), '/api/deals')).toBe(false);
+    expect(isAuthRejection(new ApiError(409, 'x'), SESSION_PATH)).toBe(false);
   });
 });
 

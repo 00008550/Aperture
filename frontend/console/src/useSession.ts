@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { apiAuthed, type Session } from './api';
+import { apiAuthed, SESSION_PATH, type Session } from './api';
 import { useAccessToken } from './auth';
 import type { Permission } from './permissions';
 
@@ -15,10 +15,10 @@ export function useSession() {
 
   const query = useQuery({
     queryKey: ['session', token],
-    // apiAuthed drops a refused token (401/403) so the console returns to sign-in instead of
-    // retrying a credential the API has already rejected — the one shared mechanism every data
-    // hook uses too, so there is a single place that decides a token has died.
-    queryFn: () => apiAuthed<Session>('/api/me'),
+    // apiAuthed drops a refused token (401, or a 403 on this session read) so the console returns
+    // to sign-in instead of retrying a credential the API has already rejected — the one shared
+    // mechanism every data hook uses too, so there is a single place that decides a token has died.
+    queryFn: () => apiAuthed<Session>(SESSION_PATH),
     enabled: token !== null,
     retry: false,
     staleTime: 5 * 60_000,

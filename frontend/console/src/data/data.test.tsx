@@ -42,6 +42,25 @@ const account = (id: string): AccountView => ({
   version: 7,
 });
 
+const dealRow = (id: string): DealView => ({
+  id,
+  tenantId: '11111111-1111-1111-1111-111111111111',
+  accountId: 'a1',
+  ownerUserId: '22222222-2222-2222-2222-222222222222',
+  teamId: null,
+  regionId: null,
+  name: `Deal ${id}`,
+  stage: 'quoted',
+  amount: 100,
+  discountPct: 0,
+  frozenPriceListVersion: 'PL-1',
+  pendingApproval: false,
+  lostReasonCode: null,
+  createdAt: '2026-09-01T00:00:00Z',
+  version: 3,
+  lines: [],
+});
+
 type Route = (url: URL, init?: RequestInit) => Response | Promise<Response>;
 
 const json = (body: unknown, status = 200) =>
@@ -170,20 +189,66 @@ describe('Sales data layer', () => {
     expect(invalidate).toHaveBeenCalledWith({ queryKey: queryKeys.deals.all });
   });
 
-  it.each([401, 403])(
-    'Given a signed-in session, when a Sales read answers %i, then the token is cleared to sign-in',
-    async (status) => {
-      setAccessToken('t-1');
-      stubFetch(session(), () => new Response(null, { status }));
-      const { Wrapper } = wrapper();
+  it('Given a signed-in session, when a Sales read answers 401, then the token is cleared to sign-in', async () => {
+    setAccessToken('t-1');
+    stubFetch(session(), () => new Response(null, { status: 401 }));
+    const { Wrapper } = wrapper();
 
-      const { result } = renderHook(() => useDeals(), { wrapper: Wrapper });
+    const { result } = renderHook(() => useDeals(), { wrapper: Wrapper });
 
-      await waitFor(() => expect(getAccessToken()).toBeNull());
-      expect(getSignOutReason()).toMatch(/token was refused/);
-      expect(result.current.data).toBeUndefined();
-    },
-  );
+    await waitFor(() => expect(getAccessToken()).toBeNull());
+    expect(getSignOutReason()).toMatch(/token was refused/);
+    expect(result.current.data).toBeUndefined();
+  });
+
+  it('Given a signed-in session, when a Sales read answers a policy 403, then the read errors and the user stays signed in', async () => {
+    setAccessToken('t-1');
+    stubFetch(session(), () => new Response(null, { status: 403 }));
+    const { Wrapper } = wrapper();
+
+    const { result } = renderHook(() => useDeals(), { wrapper: Wrapper });
+
+    await waitFor(() => expect(result.current.grid.kind).toBe('error'));
+    expect(getAccessToken()).toBe('t-1');
+  });
+
+  it('Given a server 403 on a lifecycle write, when it answers, then the session is re-read and the token survives', async () => {
+    setAccessToken('t-1');
+    const fetchMock = stubFetch(session(), () => new Response(null, { status: 403 }));
+    const { client, Wrapper } = wrapper();
+    const { result } = renderHook(() => useTransitionDeal(), { wrapper: Wrapper });
+    await waitFor(() => expect(client.getQueryData(['session', 't-1'])).toBeDefined());
+    const sessionReads = calls(fetchMock, '/api/me').length;
+
+    await act(async () => {
+      await result.current
+        .mutateAsync({ dealId: 'd1', body: { targetStage: 'qualified', expectedVersion: 3 } })
+        .catch(() => undefined);
+    });
+
+    expect(getAccessToken()).toBe('t-1');
+    await waitFor(() => expect(calls(fetchMock, '/api/me').length).toBeGreaterThan(sessionReads));
+  });
+
+  it('Given a 409 carrying the current deal, when a transition loses the race, then the detail cache holds the server deal and nothing is resent', async () => {
+    setAccessToken('t-1');
+    const current = { ...dealRow('d1'), stage: 'negotiation', version: 9 };
+    const fetchMock = stubFetch(session(), () =>
+      new Response(JSON.stringify(current), { status: 409 }),
+    );
+    const { client, Wrapper } = wrapper();
+    const { result } = renderHook(() => useTransitionDeal(), { wrapper: Wrapper });
+    await waitFor(() => expect(client.getQueryData(['session', 't-1'])).toBeDefined());
+
+    await act(async () => {
+      await result.current
+        .mutateAsync({ dealId: 'd1', body: { targetStage: 'negotiation', expectedVersion: 3 } })
+        .catch(() => undefined);
+    });
+
+    expect(client.getQueryData(queryKeys.deals.detail('t-1', 'd1'))).toEqual(current);
+    expect(calls(fetchMock, '/api/deals/d1/transition')).toHaveLength(1);
+  });
 
   it('Given a session with zero scopes, when a Sales grid loads, then it is the stated no-scope model, not an empty table (edge 5)', async () => {
     setAccessToken('t-1');

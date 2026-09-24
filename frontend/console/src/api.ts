@@ -96,23 +96,41 @@ export const TOKEN_REFUSED_MESSAGE =
   'That token was refused. It may have expired, or the account may no longer be an ' +
   'active member of the tenant it names.';
 
-/** A 401 or 403: the API refused the credential itself, not merely this request's shape. */
-export function isAuthRejection(error: unknown): error is ApiError {
-  return error instanceof ApiError && (error.status === 401 || error.status === 403);
+/** The session read. A refusal *here* is a refusal of the credential, whatever its status. */
+export const SESSION_PATH = '/api/me';
+
+/**
+ * Whether a failed call means the credential itself is dead — as opposed to "this credential may
+ * not do this one thing". The API answers a bad, expired or no-longer-a-member token with a bare
+ * `401` (AuthenticationRegistration: an unresolvable membership is 401, never 403). A `403` is a
+ * policy verdict on one route — the token is fine, the permission is missing — so it is a
+ * credential rejection only on the session read itself, where there is nothing else to deny.
+ */
+export function isAuthRejection(error: unknown, path?: string): error is ApiError {
+  if (!(error instanceof ApiError)) return false;
+  if (error.status === 401) return true;
+  return error.status === 403 && path === SESSION_PATH;
+}
+
+/** A `403` on a data route: the signed-in user is not permitted this action. The token survives. */
+export function isNotPermitted(error: unknown): error is ApiError {
+  return error instanceof ApiError && error.status === 403;
 }
 
 /**
- * The single fail-closed API path for authenticated data: a `401`/`403` is not a transient
- * error to retry — it means the token is no good, so drop it (returning the whole console to
- * sign-in) exactly as `useSession` does, then rethrow so the caller's query still lands in its
- * error state. Every read and write hook goes through here so there is one, and only one, place
- * that decides a token has died.
+ * The single fail-closed API path for authenticated data: a credential rejection (see
+ * `isAuthRejection`) is not a transient error to retry — the token is no good, so drop it
+ * (returning the whole console to sign-in), then rethrow so the caller's query still lands in its
+ * error state. A policy `403` on any other route is rethrown untouched: the caller shows "not
+ * permitted" and the user stays signed in (a user lacking one permission is not a dead session).
+ * Every read and write hook goes through here so there is one, and only one, place that decides a
+ * token has died.
  */
 export async function apiAuthed<T>(path: string, init?: RequestInit): Promise<T> {
   try {
     return await api<T>(path, init);
   } catch (error) {
-    if (isAuthRejection(error)) clearAccessToken(TOKEN_REFUSED_MESSAGE);
+    if (isAuthRejection(error, path)) clearAccessToken(TOKEN_REFUSED_MESSAGE);
     throw error;
   }
 }

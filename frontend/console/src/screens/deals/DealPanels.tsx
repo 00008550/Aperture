@@ -5,6 +5,7 @@ import { Permissions } from '../../permissions';
 import { AccountName } from '../AccountName';
 import { useSingleFlight } from '../useSingleFlight';
 import { StageChip } from './DealsGrid';
+import { DealLifecycle } from './lifecycle/DealLifecycle';
 import {
   EMPTY_DEAL_DRAFT,
   EMPTY_LINE_DRAFT,
@@ -184,11 +185,13 @@ export function CreateDealPanel({
 export function DealDetailPanel({
   id,
   canWrite,
+  canApprove,
   accountName,
   onClose,
 }: {
   id: string;
   canWrite: boolean;
+  canApprove: boolean;
   accountName: (id: string) => string | null;
   onClose: () => void;
 }) {
@@ -213,6 +216,7 @@ export function DealDetailPanel({
           deal={detail.data}
           refreshing={detail.isFetching}
           canWrite={canWrite}
+          canApprove={canApprove}
           accountName={accountName}
         />
       )}
@@ -224,11 +228,13 @@ function DealDetail({
   deal,
   refreshing,
   canWrite,
+  canApprove,
   accountName,
 }: {
   deal: DealView;
   refreshing: boolean;
   canWrite: boolean;
+  canApprove: boolean;
   accountName: (id: string) => string | null;
 }) {
   const total = deal.lines.reduce((sum, line) => sum + lineTotal(line), 0);
@@ -268,6 +274,14 @@ function DealDetail({
           <dd>{date.format(new Date(deal.createdAt))}</dd>
         </div>
       </dl>
+
+      {/* Keyed on the deal: a half-composed move never carries across to another deal. */}
+      <DealLifecycle
+        key={`lifecycle-${deal.id}`}
+        deal={deal}
+        canWrite={canWrite}
+        canApprove={canApprove}
+      />
 
       <section className="lines" aria-label="Lines">
         <h4>

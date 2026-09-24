@@ -630,9 +630,32 @@ textarea:focus-visible {
 .add-line { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--glass-border); }
 .form-hint { margin: 10px 0 0; font-size: 12.5px; }
 
+/* --- Deals: lifecycle (010-P7) --- */
+/* Only the legal next stages appear; each is a glass pill that lights its stage colour on hover. */
+.lifecycle { margin: 0 0 16px; padding: 12px 0 14px; border-top: 1px solid var(--glass-border); border-bottom: 1px solid var(--glass-border); display: flex; flex-direction: column; gap: 10px; }
+.lifecycle h4 { margin: 0; font-size: 13px; font-weight: 600; }
+.lifecycle .notice { margin: 0; }
+.stage-moves { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.move-from { font-size: 12.5px; margin-right: 2px; }
+.move-btn { --stage: var(--accent); padding: 5px 14px; border-radius: 999px; }
+.move-btn[data-target="qualified"] { --stage: var(--accent-2); }
+.move-btn[data-target="quoted"] { --stage: color-mix(in srgb, var(--accent) 50%, var(--accent-2)); }
+.move-btn[data-target="won"] { --stage: var(--ok); }
+.move-btn.danger { --stage: var(--bad); }
+.move-btn:not(.danger):hover:not(:disabled),
+.move-btn[data-selected="true"] { border-color: color-mix(in srgb, var(--stage) 65%, transparent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--stage) 14%, transparent); color: var(--text); }
+.move-btn:not(.danger)::before { content: ""; display: inline-block; width: 6px; height: 6px; margin-right: 7px; border-radius: 50%; background: var(--stage); vertical-align: 1px; }
+.move-form, .approve-form { display: flex; flex-direction: column; gap: 8px; animation: panel-in .25s cubic-bezier(.2, .7, .2, 1) both; }
+.move-form .form-actions, .approve-form .form-actions, .lifecycle .notice .form-actions { margin-top: 0; }
+.notice-held { border-color: color-mix(in srgb, var(--accent-2) 55%, transparent); background: color-mix(in srgb, var(--accent-2) 10%, transparent); }
+.notice-held strong { color: var(--accent-2); }
+.notice-terminal { border-color: color-mix(in srgb, var(--muted) 40%, transparent); background: color-mix(in srgb, var(--muted) 8%, transparent); }
+.notice-terminal.notice-won strong { color: var(--ok); }
+.notice-terminal.notice-lost strong { color: var(--bad); }
+
 /* Reduced motion: the surface stays alive in colour and light, but nothing moves. */
 @media (prefers-reduced-motion: reduce) {
-  .screen, .data-grid tbody tr, .side-panel, .notice, .skeleton-row, .lock-glyph, .pulse-dot, .confirm-pair, .stage-dot, .lines-table tbody tr { animation: none; }
+  .screen, .data-grid tbody tr, .side-panel, .notice, .skeleton-row, .lock-glyph, .pulse-dot, .confirm-pair, .stage-dot, .lines-table tbody tr, .move-form, .approve-form { animation: none; }
   .stage-chip, .lines-table tbody tr { transition: none; }
   .switch-track, .switch-track::after { transition: none; }
   .btn, .btn.primary, .icon-btn, .row-mark, nav a { transition: none; }

@@ -17,13 +17,15 @@ export const DEALS_PAGE_SIZE = 25;
  * disabled — never hidden — without it. The selected deal lives in the URL (`/deals/:dealId`),
  * as on Accounts, so a selection is linkable and survives a reload.
  *
- * Lifecycle moves and discount approval are not offered here (010-P7).
+ * The detail carries the lifecycle control (010-P7): moves ask `can('deals.write')`, discount
+ * approval asks `can('deals.discount.approve')`, each disabled — never hidden — without it.
  */
 export function DealsScreen() {
   const { dealId } = useParams();
   const navigate = useNavigate();
   const { can } = useSession();
   const canWrite = can(Permissions.DealsWrite);
+  const canApprove = can(Permissions.DealsDiscountApprove);
   const [creating, setCreating] = useState(false);
   const deals = useDeals({ limit: DEALS_PAGE_SIZE });
   const accounts = useAccountLookup();
@@ -91,6 +93,7 @@ export function DealsScreen() {
             key={selectedId}
             id={selectedId}
             canWrite={canWrite}
+            canApprove={canApprove}
             accountName={accounts.nameOf}
             onClose={() => navigate('/deals')}
           />
