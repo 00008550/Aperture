@@ -9,7 +9,7 @@ import { toGridModel } from './gate';
 import { queryKeys } from './keys';
 import { useAccounts, useUpdateAccount } from './useAccounts';
 import { useContacts } from './useContacts';
-import { useDeals, useTransitionDeal } from './useDeals';
+import { useAddDealLine, useDeals, useTransitionDeal } from './useDeals';
 
 const session = (over: Partial<Session> = {}): Session => ({
   tenantId: '11111111-1111-1111-1111-111111111111',
@@ -248,6 +248,30 @@ describe('Sales data layer', () => {
 
     expect(client.getQueryData(queryKeys.deals.detail('t-1', 'd1'))).toEqual(current);
     expect(calls(fetchMock, '/api/deals/d1/transition')).toHaveLength(1);
+  });
+
+  it('Given a 409 carrying the current deal, when an add-line is stale, then the detail cache holds the server deal and nothing is resent', async () => {
+    setAccessToken('t-1');
+    const current = { ...dealRow('d1'), stage: 'quoted', version: 11 };
+    const fetchMock = stubFetch(session(), () =>
+      new Response(JSON.stringify(current), { status: 409 }),
+    );
+    const { client, Wrapper } = wrapper();
+    const { result } = renderHook(() => useAddDealLine(), { wrapper: Wrapper });
+    await waitFor(() => expect(client.getQueryData(['session', 't-1'])).toBeDefined());
+
+    await act(async () => {
+      await result.current
+        .mutateAsync({
+          dealId: 'd1',
+          body: { productRef: 'X', unitPrice: 1, quantity: 1, priceListVersion: null, expectedVersion: 3 },
+        })
+        .catch(() => undefined);
+    });
+
+    expect(client.getQueryData(queryKeys.deals.detail('t-1', 'd1'))).toEqual(current);
+    const posts = calls(fetchMock, '/api/deals/d1/lines');
+    expect(posts).toHaveLength(1);
   });
 
   it('Given a session with zero scopes, when a Sales grid loads, then it is the stated no-scope model, not an empty table (edge 5)', async () => {

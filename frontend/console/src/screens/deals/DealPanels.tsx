@@ -336,7 +336,7 @@ function DealDetail({
       </section>
 
       {/* Keyed on the deal: switching deals never carries a half-typed line across. */}
-      <AddLineForm key={deal.id} dealId={deal.id} canWrite={canWrite} />
+      <AddLineForm key={deal.id} dealId={deal.id} version={deal.version} canWrite={canWrite} />
     </div>
   );
 }
@@ -348,7 +348,17 @@ const LINE_LABELS: Record<keyof LineDraft, string> = {
   priceListVersion: 'Price-list version',
 };
 
-function AddLineForm({ dealId, canWrite }: { dealId: string; canWrite: boolean }) {
+function AddLineForm({
+  dealId,
+  version,
+  canWrite,
+}: {
+  dealId: string;
+  /** The deal's `version` this form is showing; sent so a stale add (double-submit, a move in
+   * between) is a 409 rather than a duplicate or unfrozen line. */
+  version: number;
+  canWrite: boolean;
+}) {
   const [draft, setDraft] = useState<LineDraft>(EMPTY_LINE_DRAFT);
   const [problems, setProblems] = useState<string[]>([]);
   const [added, setAdded] = useState(false);
@@ -366,7 +376,7 @@ function AddLineForm({ dealId, canWrite }: { dealId: string; canWrite: boolean }
     setAdded(false);
     if (!flight.begin()) return;
     add.mutate(
-      { dealId, body: converted.request },
+      { dealId, body: { ...converted.request, expectedVersion: version } },
       {
         onSuccess: () => {
           setDraft(EMPTY_LINE_DRAFT);

@@ -15,12 +15,16 @@ public sealed record CreateDealRequest(
     decimal DiscountPct);
 
 /// <summary>What a caller supplies to add a line to a deal: a product, a unit price, a quantity, and the
-/// price-list version it was priced against.</summary>
+/// price-list version it was priced against. <see cref="ExpectedVersion"/> is the deal's <c>xmin</c> as the
+/// caller last read it; when supplied and stale the add is refused as a conflict before any change (and a
+/// double-submit's second request 409s instead of duplicating the line). Optional — omitted, the deal's
+/// <c>xmin</c> still guards the load-to-commit window.</summary>
 public sealed record AddDealLineRequest(
     string ProductRef,
     decimal UnitPrice,
     int Quantity,
-    string? PriceListVersion);
+    string? PriceListVersion,
+    uint? ExpectedVersion = null);
 
 /// <summary>The read model for one deal line.</summary>
 public sealed record DealLineView(
@@ -68,6 +72,18 @@ public enum DealLineAddStatus
 
     /// <summary>No deal with that id is visible to the caller's tenant and scope.</summary>
     DealNotFound = 2,
+
+    /// <summary>The deal is <c>won</c> or <c>lost</c>; no line was added.</summary>
+    DealClosed = 3,
+
+    /// <summary>The deal's price-list version is frozen and the request named a different one; no line was
+    /// added.</summary>
+    PriceListVersionMismatch = 4,
+
+    /// <summary>The deal changed since the caller read it (stale <see cref="AddDealLineRequest.ExpectedVersion"/>
+    /// or a concurrent <c>xmin</c> loss); no line was added and <see cref="DealLineAddResult.Deal"/> carries the
+    /// current state.</summary>
+    Conflict = 5,
 }
 
 public sealed record DealLineAddResult(DealLineAddStatus Status, DealView? Deal);

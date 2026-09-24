@@ -83,12 +83,6 @@ export function useCreateDeal() {
   return useDealsWrite(Permissions.DealsWrite, (body: CreateDealRequest) => createDeal(body));
 }
 
-export function useAddDealLine() {
-  return useDealsWrite(
-    Permissions.DealsWrite,
-    ({ dealId, body }: { dealId: string; body: AddDealLineRequest }) => addDealLine(dealId, body),
-  );
-}
 
 /**
  * The deal a lifecycle 409 carries. The transition and approval endpoints answer a lost `xmin`
@@ -143,6 +137,19 @@ function useLifecycleWrite<TVars extends { dealId: string }>(
       return undefined;
     },
   });
+}
+
+/**
+ * Adding a line moves the deal's `version` (the line is part of the deal aggregate), so it is written
+ * like a lifecycle write: the caller sends the version it composed against, the returned deal goes
+ * straight into the detail cache, and a 409 (stale version — e.g. a double-submit, or a move to
+ * `quoted` in between) carries the current deal, which is cached and never resent.
+ */
+export function useAddDealLine() {
+  return useLifecycleWrite(
+    Permissions.DealsWrite,
+    ({ dealId, body }: { dealId: string; body: AddDealLineRequest }) => addDealLine(dealId, body),
+  );
 }
 
 export function useTransitionDeal() {

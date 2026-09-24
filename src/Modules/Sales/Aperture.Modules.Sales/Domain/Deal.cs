@@ -142,12 +142,40 @@ public sealed class Deal : ITenantOwned, IScopedResource
     /// <summary>
     /// Adds a line (a product, a unit price, a quantity, and the price-list version it was priced against)
     /// to the deal. The line inherits the deal's tenant, so it cannot be constructed apart from its parent.
+    /// <para>
+    /// Input validity is checked first (a malformed line is a 400 whatever the stage). Then the stage: a
+    /// <c>won</c>/<c>lost</c> deal is closed and takes no new line (<see cref="DealLineAdditionStatus.DealClosed"/>).
+    /// Once a price-list version is frozen (the deal reached <c>quoted</c>, DOMAIN.md §2 rule 2), a new line
+    /// must use it: none named → the line is stamped with the frozen version; a different one →
+    /// <see cref="DealLineAdditionStatus.PriceListVersionMismatch"/> and nothing is added. A refusal is a
+    /// domain outcome, never an exception, mirroring <see cref="Transition"/>.
+    /// </para>
     /// </summary>
-    public DealLine AddLine(string productRef, decimal unitPrice, int quantity, string? priceListVersion)
+    public DealLineAddition AddLine(string productRef, decimal unitPrice, int quantity, string? priceListVersion)
     {
+        // Constructed before the stage checks so a malformed line is reported as invalid input (400) rather
+        // than masked by a state refusal; it is only attached to the aggregate when every check passes.
         var line = new DealLine(Guid.NewGuid(), this, productRef, unitPrice, quantity, priceListVersion);
+
+        if (Stage is Stages.Won or Stages.Lost)
+        {
+            return new DealLineAddition(DealLineAdditionStatus.DealClosed, null);
+        }
+
+        if (FrozenPriceListVersion is { } frozen)
+        {
+            if (line.PriceListVersion is null)
+            {
+                line.Freeze(frozen);
+            }
+            else if (!string.Equals(line.PriceListVersion, frozen, StringComparison.Ordinal))
+            {
+                return new DealLineAddition(DealLineAdditionStatus.PriceListVersionMismatch, null);
+            }
+        }
+
         _lines.Add(line);
-        return line;
+        return new DealLineAddition(DealLineAdditionStatus.Added, line);
     }
 
     /// <summary>

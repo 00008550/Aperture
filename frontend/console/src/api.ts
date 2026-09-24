@@ -284,6 +284,8 @@ export interface AddDealLineRequest {
   unitPrice: number;
   quantity: number;
   priceListVersion: string | null;
+  /** The deal's `version` (xmin) the line was composed against; stale → 409 with the current deal. */
+  expectedVersion?: number | null;
 }
 
 /** How many rows to request in one keyset page, and where to resume. `cursor` null = first page. */
