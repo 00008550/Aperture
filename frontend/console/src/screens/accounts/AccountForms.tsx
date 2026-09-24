@@ -12,6 +12,7 @@ import {
   toUpdateRequest,
   type AccountDraft,
 } from './formModel';
+import { GuardedButton } from '../../a11y/GuardedButton';
 
 const FIELD_LABELS: Record<keyof AccountDraft, string> = {
   name: 'Name',
@@ -144,14 +145,14 @@ export function CreateAccountPanel({
           </p>
         )}
         <div className="form-actions">
-          <button
+          <GuardedButton
             type="submit"
             className="btn primary"
             disabled={!canWrite || create.isPending}
-            title={canWrite ? undefined : `Requires ${Permissions.AccountsWrite}`}
+            deniedReason={canWrite ? null : `Requires ${Permissions.AccountsWrite}`}
           >
             {create.isPending ? 'Creating…' : 'Create account'}
-          </button>
+          </GuardedButton>
           <button type="button" className="btn ghost" onClick={onClose}>
             Cancel
           </button>
@@ -320,14 +321,14 @@ function EditAccountForm({
             </button>
           </>
         ) : (
-          <button
+          <GuardedButton
             type="submit"
             className="btn primary"
             disabled={!canWrite || busy}
-            title={canWrite ? undefined : `Requires ${Permissions.AccountsWrite}`}
+            deniedReason={canWrite ? null : `Requires ${Permissions.AccountsWrite}`}
           >
             {busy ? 'Saving…' : 'Save changes'}
-          </button>
+          </GuardedButton>
         )}
       </div>
     </form>

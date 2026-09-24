@@ -1,6 +1,6 @@
 # 010 — Reactive console: a living Sales surface
 
-Status: in-progress      <!-- draft → approved → in-progress → done -->
+Status: done      <!-- draft → approved → in-progress → done -->
 Roadmap: ARCHITECTURE.md §13 — item 010 (Reactive console: a living Sales surface). The §13 row now exists (user-approved additive edit, 2026-09-05); §11 (Frontend) governs the invariants this plan must honour.
 Measured: 2026-09-05 — see *Ground truth* for the exact `scripts/measure.sh endpoints` output and the frontend inventory this plan was written against.
 
@@ -381,7 +381,7 @@ This is about 9 files across API, config, and console. It is acceptable as one s
 **Tests:** edges 8 (discount hold + gated approve), 9 (illegal 422), 7-style 409 on transition; approve-without-reason blocked client-side and server 400 surfaced.
 **Risk:** high
 
-### [ ] P8 — Accessibility & motion hardening pass
+### [x] P8 — Accessibility & motion hardening pass
 **Touches:** cross-cutting — `field/*`, `screens/*`, `styles.css`; `test/` a11y assertions.
 **Done when:** full keyboard traversal of every screen and control; focus-visible on all interactive elements; the field is `aria-hidden` and never a focus/scroll trap; contrast meets AA in **both the light and dark themes**; reduced-motion verified across all screens (not just the shell); screen-reader labels on grids and lifecycle controls. Browser + test verified in both themes.
 **Tests:** reduced-motion holds on every route (edge 1 generalized); field is `aria-hidden`; keyboard reaches every write control; denied controls are not focusable (mirrors `Navigation.tsx`).

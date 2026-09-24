@@ -3,6 +3,7 @@ import type { ContactView } from '../../api';
 import type { GridModel } from '../../data/gate';
 import { Permissions } from '../../permissions';
 import { AccountName } from '../AccountName';
+import { GuardedButton } from '../../a11y/GuardedButton';
 
 const date = new Intl.DateTimeFormat(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
 
@@ -132,7 +133,11 @@ function Rows({
 
   return (
     <section className="card data-grid-card" data-grid-state="rows">
-      <table className="data-grid" aria-label="Contacts">
+      {/* The grid's name is its aria-label; how to use a row is its description (010-P8). */}
+      <p id="contacts-grid-hint" className="visually-hidden">
+        Each row opens its contact. Focus a row with Tab, then press Enter or Space.
+      </p>
+      <table className="data-grid" aria-label="Contacts" aria-describedby="contacts-grid-hint">
         <thead>
           <tr>
             <th scope="col">Name</th>
@@ -152,6 +157,9 @@ function Rows({
             return (
               <tr
                 key={contact.id}
+                // A focused row is announced by this name (Chrome computes none for a table row), so
+                // a keyboard user hears which record Enter would open (010-P8).
+                aria-label={contact.isDeparted ? `${contact.name}, departed` : contact.name}
                 tabIndex={0}
                 aria-selected={selected}
                 data-selected={selected}
@@ -198,16 +206,16 @@ function Rows({
                       </button>
                     </span>
                   ) : (
-                    <button
+                    <GuardedButton
                       type="button"
                       className="btn ghost small"
                       disabled={!canWrite || departing}
-                      title={canWrite ? undefined : `Requires ${Permissions.ContactsWrite}`}
+                      deniedReason={canWrite ? null : `Requires ${Permissions.ContactsWrite}`}
                       aria-label={`Depart ${contact.name}`}
                       onClick={() => onAskDepart(contact.id)}
                     >
                       Depart
-                    </button>
+                    </GuardedButton>
                   )}
                 </td>
               </tr>

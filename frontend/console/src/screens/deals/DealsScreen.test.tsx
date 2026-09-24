@@ -258,8 +258,7 @@ describe('Deals grid', () => {
     await screen.findByTestId('deal-detail');
     expect(screen.getByRole('button', { name: 'New deal' })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Add line' })).toBeDisabled();
-    expect(screen.getByRole('button', { name: 'Add line' })).toHaveAttribute(
-      'title',
+    expect(screen.getByRole('button', { name: 'Add line' })).toHaveAccessibleDescription(
       `Requires ${Permissions.DealsWrite}`,
     );
   });

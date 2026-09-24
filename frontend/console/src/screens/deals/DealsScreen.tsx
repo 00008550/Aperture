@@ -6,6 +6,7 @@ import { useSession } from '../../useSession';
 import { useAccountLookup } from '../AccountName';
 import { CreateDealPanel, DealDetailPanel } from './DealPanels';
 import { DealsGrid } from './DealsGrid';
+import { GuardedButton } from '../../a11y/GuardedButton';
 
 /** Rows per keyset page. */
 export const DEALS_PAGE_SIZE = 25;
@@ -46,18 +47,18 @@ export function DealsScreen() {
             Opportunities in your scopes, from <span className="mono">GET /api/deals</span>.
           </p>
         </div>
-        <button
+        <GuardedButton
           type="button"
           className="btn primary"
           disabled={!canWrite}
-          title={canWrite ? undefined : `Requires ${Permissions.DealsWrite}`}
+          deniedReason={canWrite ? null : `Requires ${Permissions.DealsWrite}`}
           onClick={() => {
             setCreating(true);
             if (dealId) navigate('/deals');
           }}
         >
           New deal
-        </button>
+        </GuardedButton>
       </header>
 
       <div className="screen-body" data-panel-open={panelOpen}>

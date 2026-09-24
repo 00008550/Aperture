@@ -236,7 +236,7 @@ describe('Deal lifecycle — offered moves', () => {
     const section = await lifecycle();
     const won = await within(section).findByRole('button', { name: 'Won' });
     expect(won).toBeDisabled();
-    expect(won).toHaveAttribute('title', 'Requires deals.write');
+    expect(won).toHaveAccessibleDescription('Requires deals.write');
     expect(within(section).getByRole('button', { name: 'Lost' })).toBeDisabled();
   });
 });
@@ -369,7 +369,7 @@ describe('Deal lifecycle — discount hold and approval (edge 8)', () => {
     expect(await detailChip()).toHaveAttribute('data-stage', 'negotiation');
     const won = within(section).getByRole('button', { name: 'Won' });
     expect(won).toBeDisabled();
-    expect(won.getAttribute('title')).toMatch(/Held for lead approval/);
+    expect(won).toHaveAccessibleDescription(/Held for lead approval/);
   });
 
   it('Given a held deal and an agent without deals.discount.approve, when rendered, then Approve discount is disabled — not hidden', async () => {
@@ -378,7 +378,7 @@ describe('Deal lifecycle — discount hold and approval (edge 8)', () => {
 
     const approve = await screen.findByRole('button', { name: 'Approve discount' });
     expect(approve).toBeDisabled();
-    expect(approve).toHaveAttribute('title', `Requires ${Permissions.DealsDiscountApprove}`);
+    expect(approve).toHaveAccessibleDescription(`Requires ${Permissions.DealsDiscountApprove}`);
     expect(screen.getByLabelText('Approval reason')).toBeDisabled();
   });
 

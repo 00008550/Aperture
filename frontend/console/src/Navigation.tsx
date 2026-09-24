@@ -1,3 +1,4 @@
+import { Fragment } from 'react';
 import { NavLink } from 'react-router';
 import { Permissions, type Permission } from './permissions';
 
@@ -51,21 +52,34 @@ export function Navigation({ can, items = NAV_ITEMS }: NavigationProps) {
             </NavLink>
           );
         }
+        const reasonId = `nav-denied-${item.path.slice(1)}`;
         return (
-          <a
-            key={item.label}
-            // No href when denied: an anchor without one is not a link, so it cannot be
-            // followed by keyboard, middle-click or "open in new tab" either.
-            aria-disabled
-            data-denied
-            title={`Requires ${item.permission}`}
-          >
-            {item.label}
-            <span className="mono lock" aria-label={`Requires ${item.permission}`}>
-              {' '}
-              locked
+          <Fragment key={item.label}>
+            <a
+              // No href when denied: it cannot be followed by keyboard, middle-click or "open in new
+              // tab", and it is skipped by Tab, like every denied control (see
+              // `a11y/GuardedButton.tsx`). role="link" + aria-disabled is the ARIA disabled-link
+              // pattern: assistive tech announces "Orders, link, unavailable" rather than bare text
+              // (an href-less anchor is a generic element and carries no name at all). The reason is
+              // its accessible description, never its name; `title` is not used, since a browser
+              // may promote it to the name.
+              role="link"
+              aria-disabled="true"
+              data-denied
+              data-denied-reason={`Requires ${item.permission}`}
+              aria-describedby={reasonId}
+            >
+              {item.label}
+              <span className="mono lock" aria-hidden="true">
+                {' '}
+                locked
+              </span>
+            </a>
+            {/* Outside the anchor, so the reason describes it without joining its name. */}
+            <span id={reasonId} className="visually-hidden">
+              Requires {item.permission}
             </span>
-          </a>
+          </Fragment>
         );
       })}
     </nav>

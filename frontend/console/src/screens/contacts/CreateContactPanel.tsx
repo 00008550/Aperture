@@ -10,6 +10,7 @@ import {
   toCreateContact,
   type ContactDraft,
 } from './formModel';
+import { GuardedButton } from '../../a11y/GuardedButton';
 
 const LABELS: Record<keyof ContactDraft, string> = {
   accountId: 'Account ID',
@@ -124,14 +125,14 @@ export function CreateContactPanel({
         )}
 
         <div className="form-actions">
-          <button
+          <GuardedButton
             type="submit"
             className="btn primary"
             disabled={disabled}
-            title={canWrite ? undefined : `Requires ${Permissions.ContactsWrite}`}
+            deniedReason={canWrite ? null : `Requires ${Permissions.ContactsWrite}`}
           >
             {create.isPending ? 'Creating…' : 'Create contact'}
-          </button>
+          </GuardedButton>
           <button type="button" className="btn ghost" onClick={onClose}>
             Cancel
           </button>

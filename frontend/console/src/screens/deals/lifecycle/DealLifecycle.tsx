@@ -15,6 +15,7 @@ import {
   toTransition,
   type Stage,
 } from './lifecycleModel';
+import { GuardedButton } from '../../../a11y/GuardedButton';
 
 /** The last write the user asked for — kept so a 409 can be re-applied, only on their say-so. */
 type Attempt =
@@ -205,25 +206,32 @@ export function DealLifecycle({
         </div>
       )}
 
-      <div className="stage-moves" role="group" aria-label="Move to stage">
-        <span className="sub move-from">
+      {/* The group is named for what it does and described by where the deal stands now, so a
+          screen reader announces "Move to stage, From Negotiation to" before the moves (010-P8). */}
+      <div
+        className="stage-moves"
+        role="group"
+        aria-label="Move to stage"
+        aria-describedby={`lifecycle-from-${deal.id}`}
+      >
+        <span className="sub move-from" id={`lifecycle-from-${deal.id}`}>
           From <b>{STAGE_LABEL[deal.stage as Stage] ?? deal.stage}</b> to
         </span>
         {moves.map((move) => (
-          <button
+          <GuardedButton
             key={move.target}
             type="button"
             className={`btn move-btn${move.target === 'lost' ? ' danger' : ''}`}
             data-target={move.target}
             data-selected={composing === move.target}
             disabled={move.blockedBy !== null || controlsDisabled}
-            title={move.blockedBy ?? undefined}
+            deniedReason={move.blockedBy}
             onClick={() => choose(move.target, move.input)}
           >
             {busy && attempt?.kind === 'move' && attempt.target === move.target
               ? 'Moving…'
               : STAGE_LABEL[move.target]}
-          </button>
+          </GuardedButton>
         ))}
       </div>
 
@@ -290,14 +298,14 @@ export function DealLifecycle({
             />
           </label>
           <div className="form-actions">
-            <button
+            <GuardedButton
               type="submit"
               className="btn primary"
               disabled={!canApprove || controlsDisabled}
-              title={canApprove ? undefined : `Requires ${Permissions.DealsDiscountApprove}`}
+              deniedReason={canApprove ? null : `Requires ${Permissions.DealsDiscountApprove}`}
             >
               {approve.isPending ? 'Approving…' : 'Approve discount'}
-            </button>
+            </GuardedButton>
           </div>
         </form>
       )}

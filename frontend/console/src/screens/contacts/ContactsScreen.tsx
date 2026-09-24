@@ -8,6 +8,7 @@ import { useSingleFlight } from '../useSingleFlight';
 import { ContactsGrid } from './ContactsGrid';
 import { CreateContactPanel } from './CreateContactPanel';
 import { describeContactError } from './formModel';
+import { GuardedButton } from '../../a11y/GuardedButton';
 
 /** Rows per keyset page. */
 export const CONTACTS_PAGE_SIZE = 25;
@@ -77,15 +78,15 @@ export function ContactsScreen() {
             <span className="switch-track" aria-hidden="true" />
             <span>Show departed</span>
           </label>
-          <button
+          <GuardedButton
             type="button"
             className="btn primary"
             disabled={!canWrite}
-            title={canWrite ? undefined : `Requires ${Permissions.ContactsWrite}`}
+            deniedReason={canWrite ? null : `Requires ${Permissions.ContactsWrite}`}
             onClick={() => setCreating(true)}
           >
             New contact
-          </button>
+          </GuardedButton>
         </div>
       </header>
 

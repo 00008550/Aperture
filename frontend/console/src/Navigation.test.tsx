@@ -26,14 +26,19 @@ describe('the permission gate', () => {
     expect(orders).toHaveAttribute('aria-disabled', 'true');
     // No href: not a link, so it cannot be followed by keyboard or middle click either.
     expect(orders).not.toHaveAttribute('href');
-    expect(orders).toHaveAttribute('title', `Requires ${Permissions.OrdersRead}`);
+    expect(orders).toHaveAccessibleDescription(`Requires ${Permissions.OrdersRead}`);
   });
 
   it('disables every item for a user with no permissions at all', () => {
     render(<Navigation can={() => false} />);
 
-    // Overview is the only link; every gated item is denied. Fail closed.
-    expect(screen.getAllByRole('link')).toHaveLength(1);
+    // Overview is the only followable link; every gated item is a disabled link (role="link",
+    // aria-disabled, no href — 010-P8). Fail closed.
+    const links = screen.getAllByRole('link');
+    expect(links.filter((link) => link.hasAttribute('href'))).toHaveLength(1);
+    for (const link of links.filter((l) => !l.hasAttribute('href'))) {
+      expect(link).toHaveAttribute('aria-disabled', 'true');
+    }
     expect(screen.getAllByText('locked').length).toBeGreaterThan(0);
   });
 
