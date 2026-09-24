@@ -1,4 +1,5 @@
 using Aperture.SharedKernel.Authorization;
+using Aperture.SharedKernel.Domain;
 using Aperture.SharedKernel.Multitenancy;
 
 namespace Aperture.Modules.Sales.Domain;
@@ -115,12 +116,12 @@ public sealed class Account : ITenantOwned, IScopedResource
 
     private static string Require(string value, string paramName) =>
         string.IsNullOrWhiteSpace(value)
-            ? throw new ArgumentException($"{paramName} is required.", paramName)
+            ? throw new DomainValidationException(paramName, $"{paramName} is required.")
             : value.Trim();
 
     private static decimal NonNegative(decimal value, string paramName) =>
-        value < 0 ? throw new ArgumentOutOfRangeException(paramName, value, "Must not be negative.") : value;
+        value < 0 ? throw new DomainValidationException(paramName, $"{paramName} must not be negative.") : value;
 
     private static int NonNegative(int value, string paramName) =>
-        value < 0 ? throw new ArgumentOutOfRangeException(paramName, value, "Must not be negative.") : value;
+        value < 0 ? throw new DomainValidationException(paramName, $"{paramName} must not be negative.") : value;
 }

@@ -1,6 +1,6 @@
 # 011 — Hardening follow-ups (Sales API errors, deal-line integrity, read-model names, a11y, detector drift)
 
-Status: approved         <!-- draft → approved → in-progress → done -->
+Status: in-progress         <!-- draft → approved → in-progress → done -->
 Roadmap: ARCHITECTURE.md §13 — interstitial hardening between 010 (done) and 003 (draft); no new capability
 Measured: 2026-09-24 on `master` @ 231c593 (branch `docs/011-hardening-plan`)
 
