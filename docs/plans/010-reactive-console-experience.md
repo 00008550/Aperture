@@ -369,7 +369,7 @@ This is about 9 files across API, config, and console. It is acceptable as one s
 
 **Risk:** medium-high (auth-adjacent: mints tokens; the Development gate is the whole safety argument, so the Production-404 test is non-negotiable).
 
-### [ ] P6 — Deals screen: grid + detail with lines
+### [x] P6 — Deals screen: grid + detail with lines
 **Touches:** `screens/deals/*`, router wiring, tests.
 **Done when:** Deals grid (gated `deals.read`), single-deal detail showing lines, create deal, and add-line all bound to the real endpoints, with quiet-but-alive hover/focus/selection micro-interactions. **Correct in both light and dark themes**; reduced-motion/degrade Done-when holds. Browser-verified.
 **Tests:** detail includes lines while grid omits them; add-line refetches detail; pagination (edge 11).

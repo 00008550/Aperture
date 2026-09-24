@@ -330,6 +330,32 @@ describe('Create under account', () => {
   });
 });
 
+describe('Account names on contacts', () => {
+  it('Given accounts.read, when the grid renders, then the account column shows the account name, not a truncated id', async () => {
+    const server = contactsServer([contact('c1')]);
+    stubFetch(session({ permissions: [Permissions.ContactsRead, Permissions.AccountsRead] }), (url, init) =>
+      url.pathname === '/api/accounts'
+        ? json({ items: [{ id: ACCOUNT, name: 'Contoso Freight' }], nextCursor: null })
+        : server.route(url, init),
+    );
+    renderAt('/contacts');
+
+    const row = await screen.findByTestId('contact-row-c1');
+    await waitFor(() => expect(row).toHaveTextContent('Contoso Freight'));
+    expect(row).not.toHaveTextContent(ACCOUNT.slice(0, 8));
+  });
+
+  it('Given no accounts.read, when the grid renders, then the account falls back to the short id and no GET /api/accounts is issued', async () => {
+    const fetchMock = stubFetch(session(), contactsServer([contact('c1')]).route);
+    renderAt('/contacts');
+
+    const row = await screen.findByTestId('contact-row-c1');
+    expect(row).toHaveTextContent(ACCOUNT.slice(0, 8));
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(requests(fetchMock, 'GET', '/api/accounts')).toHaveLength(0);
+  });
+});
+
 describe('contact form model', () => {
   it('requires an account id shaped like a GUID and a name, and sends no request otherwise', () => {
     const result = toCreateContact({ ...EMPTY_CONTACT_DRAFT, accountId: 'nope' });

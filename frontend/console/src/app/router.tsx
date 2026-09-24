@@ -4,6 +4,7 @@ import { NAV_ITEMS } from '../Navigation';
 import { Permissions, type Permission } from '../permissions';
 import { AccountsScreen } from '../screens/accounts/AccountsScreen';
 import { ContactsScreen } from '../screens/contacts/ContactsScreen';
+import { DealsScreen } from '../screens/deals/DealsScreen';
 import { useSession } from '../useSession';
 
 /**
@@ -63,7 +64,7 @@ function NotYetBuilt({ label }: { label: string }) {
 }
 
 /** Sections with a real screen; every other nav item keeps its gated placeholder. */
-const BUILT_SCREENS = new Set(['/accounts', '/contacts']);
+const BUILT_SCREENS = new Set(['/accounts', '/contacts', '/deals']);
 
 export interface ConsoleRoutesProps {
   /** The Overview content — the session panels the shell showed before routing existed. */
@@ -95,6 +96,22 @@ export function ConsoleRoutes({ overview }: ConsoleRoutesProps) {
         element={
           <RequirePermission permission={Permissions.ContactsRead}>
             <ContactsScreen />
+          </RequirePermission>
+        }
+      />
+      <Route
+        path="deals"
+        element={
+          <RequirePermission permission={Permissions.DealsRead}>
+            <DealsScreen />
+          </RequirePermission>
+        }
+      />
+      <Route
+        path="deals/:dealId"
+        element={
+          <RequirePermission permission={Permissions.DealsRead}>
+            <DealsScreen />
           </RequirePermission>
         }
       />

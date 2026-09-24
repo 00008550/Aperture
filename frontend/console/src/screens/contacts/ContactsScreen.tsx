@@ -3,6 +3,7 @@ import type { ContactView } from '../../api';
 import { useContacts, useDepartContact } from '../../data/useContacts';
 import { Permissions } from '../../permissions';
 import { useSession } from '../../useSession';
+import { useAccountLookup } from '../AccountName';
 import { useSingleFlight } from '../useSingleFlight';
 import { ContactsGrid } from './ContactsGrid';
 import { CreateContactPanel } from './CreateContactPanel';
@@ -36,6 +37,7 @@ export function ContactsScreen() {
   const contacts = useContacts({ limit: CONTACTS_PAGE_SIZE, includeDeparted });
   const depart = useDepartContact();
   const flight = useSingleFlight();
+  const accountName = useAccountLookup().nameOf;
 
   const confirmDepart = (id: string) => {
     if (!flight.begin()) return;
@@ -116,6 +118,7 @@ export function ContactsScreen() {
           onLoadMore={() => void contacts.fetchNextPage()}
           loadingMore={contacts.isFetchingNextPage}
           onRetry={() => void contacts.refetch()}
+          accountName={accountName}
         />
 
         {creating && (
