@@ -166,7 +166,7 @@ and the per-field `errors` map — a 400 `ValidationProblemDetails` needs no con
 **Tests:** edges 10, 12–16 — including the two-context race (edge 15) against real PostgreSQL, as 002-P5's concurrent-transition test does; console spec for 409 on add-line.
 **Risk:** medium — behaviour change on a shipped endpoint (Q1) and an EF force-update trick that must be proven to emit the `xmin` predicate.
 
-### [ ] P4 — `accountName` in the contact and deal read models (API)
+### [x] P4 — `accountName` in the contact and deal read models (API)
 **Touches:** `Sales/Application/ContactModels.cs`, `ContactService.cs`, `DealModels.cs`, `DealService.cs` (grid SQL `LEFT JOIN`, EF detail lookup); `Sales.Tests` (RLS differential); `Api.Tests` (payload).
 **Done when:** contacts grid, deals grid, deal detail, and the create/transition/add-line responses carry `accountName` (current name, or `null` when the account is not visible); RLS differential proves no name outside the caller's `accounts` scope; `rawsql` still 0 production sites.
 **Tests:** edges 17–19; differential across Self/Team/Region/Account grants on **both** the EF and `ScopedConnection` paths; rename-then-read.
