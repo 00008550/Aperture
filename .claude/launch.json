@@ -4,13 +4,27 @@
     {
       "name": "console",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev", "--prefix", "frontend/console"],
+      "runtimeArgs": [
+        "run",
+        "dev",
+        "--prefix",
+        "frontend/console"
+      ],
       "port": 5173
     },
     {
       "name": "api",
       "runtimeExecutable": "dotnet",
-      "runtimeArgs": ["run", "--project", "src/Aperture.Api"],
+      "runtimeArgs": [
+        "run",
+        "--project",
+        "src/Aperture.Api",
+        "--launch-profile",
+        "http",
+        "--",
+        "--urls",
+        "http://localhost:5080"
+      ],
       "port": 5080
     }
   ]

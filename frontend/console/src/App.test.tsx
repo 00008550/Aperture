@@ -69,7 +69,9 @@ describe('the console session', () => {
     expect(await screen.findByText('Regional Lead')).toBeInTheDocument();
     expect(screen.getByText('lead@northwind.example')).toBeInTheDocument();
 
-    const [, init] = fetchMock.mock.calls[0]!;
+    // Found by path, not by position: in a dev build the sign-in screen's dev picker (010-P5a) asks
+    // /api/dev/users first.
+    const [, init] = fetchMock.mock.calls.find(([input]) => String(input) === '/api/me')!;
     expect((init?.headers as Record<string, string>).authorization).toBe('Bearer a-token');
   });
 

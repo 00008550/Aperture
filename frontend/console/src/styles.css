@@ -317,6 +317,42 @@ textarea:focus-visible {
 .signin button[type="submit"]:hover { transform: translateY(-1px); box-shadow: 0 8px 20px -8px color-mix(in srgb, var(--accent) 70%, transparent); }
 .signin button[type="submit"]:disabled { opacity: .4; cursor: not-allowed; transform: none; box-shadow: none; }
 
+/* Development sign-in picker (010-P5a) — dev builds only; the class names never reach a production
+   bundle's JS, and these few rules are inert without them. */
+.signin { align-content: center; gap: 16px; }
+.dev-picker h2 { display: flex; align-items: center; gap: 8px; }
+.dev-picker .sub { margin: 0 0 12px; }
+.dev-picker-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.dev-picker-user {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 2px 12px;
+  text-align: left;
+  font: inherit;
+  color: var(--text);
+  background: color-mix(in srgb, var(--bg) 55%, transparent);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  cursor: pointer;
+  transition: transform .16s ease, border-color .16s ease, background .16s ease;
+}
+.dev-picker-user:hover:not(:disabled) {
+  transform: translateY(-1px);
+  border-color: color-mix(in srgb, var(--accent) 55%, transparent);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+.dev-picker-user:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.dev-picker-user:disabled { opacity: .55; cursor: progress; }
+.dev-picker-name { font-weight: 600; }
+.dev-picker-label { color: var(--muted); font-size: 12px; grid-column: 1; }
+.dev-picker-email { color: var(--muted); font-size: 11px; grid-column: 2; grid-row: 1 / span 2; align-self: center; }
+@media (prefers-reduced-motion: reduce) {
+  .dev-picker-user { transition: none; }
+  .dev-picker-user:hover:not(:disabled) { transform: none; }
+}
+
 .empty { border: 1px dashed var(--warn); border-radius: var(--radius-sm); padding: 11px 13px; background: color-mix(in srgb, var(--warn) 8%, transparent); }
 .empty .sub { margin: 6px 0 0; }
 
