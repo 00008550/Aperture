@@ -266,7 +266,7 @@ Contacts, Deals (grid + detail + lifecycle), all floating on the block-field, al
 **Tests:** edge 12 (depart is not delete); create validates account-in-scope failure (404 surfaced); double-submit guarded (edge 10).
 **Risk:** low
 
-### [ ] P5a — Dev sign-in picker + demo seed (Development only)
+### [x] P5a — Dev sign-in picker + demo seed (Development only)
 **Why inserted now (user-approved 2026-09-24):** the P4 and P5 reviewers both recorded the same gap. Data-bound screens could only be verified with mocked-fetch tests, because a local token can't be obtained: sign-in means pasting a JWT (`SignIn.tsx`: "There is no token-issuing endpoint yet"). Both reviewers recommended closing the gap before P6–P7, where the lifecycle and discount-approval states depend on the permissions and scope of whoever is signed in. The orchestrator ran the full stack live using a throwaway scratch seeder, and that run found two local-dev defects, (a) and (b) below. This portion makes the capability repo-owned and fail-closed. It is inserted as P5a so P6–P8 keep their numbers, which STATE.md and PR bodies reference.
 
 **Measured 2026-09-24 (this branch):**
