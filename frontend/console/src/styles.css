@@ -150,8 +150,10 @@ body {
 }
 
 /* The reactive block-field: a fixed, full-viewport canvas pinned behind the content. It never
-   captures pointer events (the shell above stays fully interactive) and is aria-hidden. */
-.field {
+   captures pointer events (the shell above stays fully interactive) and is aria-hidden.
+   Scoped to the canvas element: form rows also carry `.field`, and an unscoped rule pinned every
+   form label `position: fixed` with `pointer-events: none` — unusable, and invisible to jsdom. */
+canvas.field {
   position: fixed;
   inset: 0;
   width: 100vw;

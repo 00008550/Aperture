@@ -15,5 +15,8 @@ export default defineConfig({
     environment: 'jsdom',
     setupFiles: ['./src/test/setup.ts'],
     include: ['src/**/*.test.ts', 'src/**/*.test.tsx'],
+    // Only the app stylesheet is processed (the rest stay stubbed), so `app/styles.test.ts` can read
+    // it as text — jsdom does not lay out, and a selector collision is otherwise untestable.
+    css: { include: [/styles\.css/] },
   },
 });
