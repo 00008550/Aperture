@@ -206,8 +206,6 @@ public sealed class DemoSeed(
         // One transaction: set_config(..., is_local: true) scopes the secret to it, so it is gone at commit.
         await using var transaction = await access.Database.BeginTransactionAsync(cancellationToken);
 
-        // Cluster-level role statements, not tenant data: no tenant_id applies — they read and write no
-        // tenant's rows (the gate's tenant-predicate rule is about reads and writes of tenant-owned tables).
         await access.Database.ExecuteSqlAsync(
             $"SELECT set_config('aperture.seed_reader_password', {password}, true)",
             cancellationToken);
