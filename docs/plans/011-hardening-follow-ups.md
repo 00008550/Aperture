@@ -147,7 +147,7 @@ and the per-field `errors` map — a 400 `ValidationProblemDetails` needs no con
 
 ## Portions
 
-### [ ] P1 — Domain validation is a 400, and unhandled errors are opaque ProblemDetails
+### [x] P1 — Domain validation is a 400, and unhandled errors are opaque ProblemDetails
 **Touches:** `Aperture.SharedKernel/Domain/DomainValidationException.cs` (new); `Sales/Domain/Account.cs`, `Contact.cs`, `Deal.cs`, `DealLine.cs` (guards throw it); `Aperture.Api/Errors/DomainValidationExceptionHandler.cs` (new); `Aperture.Api/Program.cs`; `Aperture.Api.Tests/DomainValidationEndpointTests.cs` (new); existing Sales domain tests that assert `ArgumentException` updated.
 **Done when:** every caller-input guard in the four Sales aggregates throws `DomainValidationException`; every such violation through any Sales route returns 400 `application/problem+json` with `errors.<field>`; any other unhandled exception returns a 500 ProblemDetails with `traceId` and no internals; `ArgumentNullException` programming guards are untouched. `endpoints` still 18/0.
 **Tests:** edges 1–9 (every guard × every route that reaches it, including account `PATCH`; boundaries 0/100; 403-before-400); a fault-injected 500 asserts body contains neither the message nor a type name; Sales domain unit tests assert field names.
