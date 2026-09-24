@@ -189,7 +189,11 @@ Given/When/Then — these become the builder's test list verbatim.
    the UI shows "changed by someone else", refetches, and does not resubmit silently.
 8. **Discount hold (rule 3).** *Given* a `won` transition returns `200` with `PendingApproval` true,
    *when* rendered, *then* the deal shows a "pending approval" state (not success, not error), and the
-   approve control appears only for a user with `deals.discount.approve`.
+   approve control is enabled only for a user with `deals.discount.approve` — for anyone else it is
+   rendered **disabled, not hidden**, with the reason (the console-wide disabled-not-hidden rule).
+   *(Record correction 2026-09-24, plan 011 survey: this edge originally read "appears only for"; the
+   shipped console, by user/orchestrator decision in P7, disables rather than hides. The server's
+   `deals.discount.approve` policy is the authority either way.)*
 9. **Illegal transition (422).** *Given* an illegal edge, *when* the server 422s, *then* the offered
    move is shown rejected with the server's message; the UI never pre-declares an illegal move legal.
 10. **Double-submit.** *Given* a create form, *when* the button is clicked twice fast, *then* only one
@@ -377,7 +381,7 @@ This is about 9 files across API, config, and console. It is acceptable as one s
 
 ### [x] P7 — Deal lifecycle: transition + discount approval
 **Touches:** `screens/deals/lifecycle/*`, `data/useDeals.ts` (transition + approve mutations), tests.
-**Done when:** the detail offers the lifecycle moves and treats the server as authority — `422` shows the rejected move with the server message, `409` shows stale + refetch, and the `200 + PendingApproval` discount-hold renders a distinct "pending approval" state with an approve control shown **only** for `deals.discount.approve` holders; approval sends a required reason. Optimistic update layered in only for the reversible transitions with rollback-on-error. **Correct in both light and dark themes**; reduced-motion/degrade Done-when holds. Browser-verified.
+**Done when:** the detail offers the lifecycle moves and treats the server as authority — `422` shows the rejected move with the server message, `409` shows stale + refetch, and the `200 + PendingApproval` discount-hold renders a distinct "pending approval" state with an approve control enabled **only** for `deals.discount.approve` holders (disabled-not-hidden for others — record correction 2026-09-24, see edge 8); approval sends a required reason. Optimistic update layered in only for the reversible transitions with rollback-on-error. **Correct in both light and dark themes**; reduced-motion/degrade Done-when holds. Browser-verified.
 **Tests:** edges 8 (discount hold + gated approve), 9 (illegal 422), 7-style 409 on transition; approve-without-reason blocked client-side and server 400 surfaced.
 **Risk:** high
 
