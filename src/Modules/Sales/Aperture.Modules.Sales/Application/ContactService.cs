@@ -26,14 +26,20 @@ internal sealed class ContactService : IContactService
     // No trailing semicolon: ScopedConnection wraps this as a subquery. The scope columns keep their
     // snake_case names so the belt fragment resolves against the wrapper alias. @IncludeDeparted lets the
     // history view opt in; the default active grid excludes departed rows below the SQL, not in memory.
+    // The parent's name is a LEFT JOIN (011-P4): sales.accounts carries its own RLS policy, so under the
+    // reader role an account outside the caller's tenant or scope is invisible to the DBMS and the join
+    // yields a NULL name — the contact row still returns, the label fails closed. An INNER JOIN would hide
+    // the contact instead. The tenant equality is belt-and-braces and lets the planner use the account key.
     private const string GridSql =
         """
-        SELECT id, tenant_id, account_id, owner_user_id, team_id, region_id,
-               name, email, phone, messenger, is_departed, departed_at, created_at
-        FROM sales.contacts
-        WHERE (@IncludeDeparted = TRUE OR is_departed = FALSE)
-          AND (@HasCursor = FALSE OR (created_at, id) > (@AfterCreatedAt, @AfterId))
-        ORDER BY created_at, id
+        SELECT c.id, c.tenant_id, c.account_id, c.owner_user_id, c.team_id, c.region_id,
+               c.name, c.email, c.phone, c.messenger, c.is_departed, c.departed_at, c.created_at,
+               a.name AS account_name
+        FROM sales.contacts c
+        LEFT JOIN sales.accounts a ON a.id = c.account_id AND a.tenant_id = c.tenant_id
+        WHERE (@IncludeDeparted = TRUE OR c.is_departed = FALSE)
+          AND (@HasCursor = FALSE OR (c.created_at, c.id) > (@AfterCreatedAt, @AfterId))
+        ORDER BY c.created_at, c.id
         LIMIT @Limit
         """;
 
@@ -82,7 +88,8 @@ internal sealed class ContactService : IContactService
         _db.Contacts.Add(contact);
         await _db.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
 
-        return new ContactCreateResult(ContactCreateStatus.Created, ToView(contact));
+        // The parent was just loaded through the caller's scope, so its name is visible by construction.
+        return new ContactCreateResult(ContactCreateStatus.Created, ToView(contact, account.Name));
     }
 
     public async Task<ContactDepartResult> DepartAsync(
@@ -109,7 +116,10 @@ internal sealed class ContactService : IContactService
         contact.Depart();
         await _db.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
 
-        return new ContactDepartResult(ContactDepartStatus.Departed, ToView(contact));
+        var accountName = await AccountNames.ResolveAsync(_db, scopes, contact.AccountId, cancellationToken)
+            .ConfigureAwait(false);
+
+        return new ContactDepartResult(ContactDepartStatus.Departed, ToView(contact, accountName));
     }
 
     public async Task<ContactsPage> ListAsync(
@@ -159,6 +169,8 @@ internal sealed class ContactService : IContactService
 
         public Guid AccountId { get; set; }
 
+        public string? AccountName { get; set; }
+
         public Guid OwnerUserId { get; set; }
 
         public Guid? TeamId { get; set; }
@@ -185,6 +197,7 @@ internal sealed class ContactService : IContactService
             r.Id,
             r.TenantId,
             r.AccountId,
+            r.AccountName,
             r.OwnerUserId,
             r.TeamId,
             r.RegionId,
@@ -196,11 +209,12 @@ internal sealed class ContactService : IContactService
             r.DepartedAt is { } d ? new DateTimeOffset(DateTime.SpecifyKind(d, DateTimeKind.Utc)) : null,
             new DateTimeOffset(DateTime.SpecifyKind(r.CreatedAt, DateTimeKind.Utc)));
 
-    private static ContactView ToView(Contact c) =>
+    private static ContactView ToView(Contact c, string? accountName) =>
         new(
             c.Id,
             c.TenantId.Value,
             c.AccountId!.Value,
+            accountName,
             c.OwnerUserId.Value,
             c.TeamId,
             c.RegionId,

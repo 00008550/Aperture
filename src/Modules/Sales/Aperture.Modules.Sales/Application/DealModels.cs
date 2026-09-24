@@ -36,11 +36,15 @@ public sealed record DealLineView(
     string? PriceListVersion);
 
 /// <summary>The read model for one deal — the shape the console and the assistant read. The grid returns
-/// it without <see cref="Lines"/> (an empty list); a single-deal read includes them.</summary>
+/// it without <see cref="Lines"/> (an empty list); a single-deal read includes them. <see cref="AccountName"/>
+/// is the parent account's current name, resolved under the same tenant and scope as the deal; it is
+/// <c>null</c> when that account is not visible to the caller (fail closed on the label, never on the row).
+/// </summary>
 public sealed record DealView(
     Guid Id,
     Guid TenantId,
     Guid AccountId,
+    string? AccountName,
     Guid OwnerUserId,
     Guid? TeamId,
     Guid? RegionId,

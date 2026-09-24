@@ -15,11 +15,15 @@ public sealed record CreateContactRequest(
     string? Phone,
     string? Messenger);
 
-/// <summary>The read model for one contact — the shape the console and the assistant read.</summary>
+/// <summary>The read model for one contact — the shape the console and the assistant read.
+/// <see cref="AccountName"/> is the parent account's current name, resolved under the same tenant and scope
+/// as the contact; it is <c>null</c> when that account is not visible to the caller (fail closed on the
+/// label, never on the row).</summary>
 public sealed record ContactView(
     Guid Id,
     Guid TenantId,
     Guid AccountId,
+    string? AccountName,
     Guid OwnerUserId,
     Guid? TeamId,
     Guid? RegionId,

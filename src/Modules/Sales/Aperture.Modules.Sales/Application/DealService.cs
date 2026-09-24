@@ -26,15 +26,20 @@ internal sealed class DealService : IDealService
 
     // No trailing semicolon: ScopedConnection wraps this as a subquery. The scope columns keep their
     // snake_case names so the belt fragment resolves against the wrapper alias. The grid returns the deal
-    // header only — lines are read with a single deal, not on the list.
+    // header only — lines are read with a single deal, not on the list. The parent's name is a LEFT JOIN
+    // (011-P4): sales.accounts carries its own RLS policy, so under the reader role an account outside the
+    // caller's tenant or scope is invisible to the DBMS and the join yields a NULL name — the deal row still
+    // returns, the label fails closed. The tenant equality is belt-and-braces and an index aid.
     private const string GridSql =
         """
-        SELECT id, tenant_id, account_id, owner_user_id, team_id, region_id,
-               name, stage, amount, discount_pct, frozen_price_list_version,
-               pending_approval, lost_reason_code, created_at, xmin AS version
-        FROM sales.deals
-        WHERE (@HasCursor = FALSE OR (created_at, id) > (@AfterCreatedAt, @AfterId))
-        ORDER BY created_at, id
+        SELECT d.id, d.tenant_id, d.account_id, d.owner_user_id, d.team_id, d.region_id,
+               d.name, d.stage, d.amount, d.discount_pct, d.frozen_price_list_version,
+               d.pending_approval, d.lost_reason_code, d.created_at, d.xmin AS version,
+               a.name AS account_name
+        FROM sales.deals d
+        LEFT JOIN sales.accounts a ON a.id = d.account_id AND a.tenant_id = d.tenant_id
+        WHERE (@HasCursor = FALSE OR (d.created_at, d.id) > (@AfterCreatedAt, @AfterId))
+        ORDER BY d.created_at, d.id
         LIMIT @Limit
         """;
 
@@ -78,7 +83,8 @@ internal sealed class DealService : IDealService
         _db.Deals.Add(deal);
         await _db.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
 
-        return new DealCreateResult(DealCreateStatus.Created, ToView(deal));
+        // The parent was just loaded through the caller's scope, so its name is visible by construction.
+        return new DealCreateResult(DealCreateStatus.Created, ToView(deal, account.Name));
     }
 
     public async Task<DealView?> GetAsync(
@@ -95,7 +101,7 @@ internal sealed class DealService : IDealService
             .SingleOrDefaultAsync(d => d.Id == id, cancellationToken)
             .ConfigureAwait(false);
 
-        return deal is null ? null : ToView(deal);
+        return deal is null ? null : await ViewAsync(scopes, deal, cancellationToken).ConfigureAwait(false);
     }
 
     public async Task<DealLineAddResult> AddLineAsync(
@@ -125,7 +131,8 @@ internal sealed class DealService : IDealService
         // before any change. The xmin token then guards the load-to-commit window below.
         if (request.ExpectedVersion is { } expected && deal.Version != expected)
         {
-            return new DealLineAddResult(DealLineAddStatus.Conflict, ToView(deal));
+            var staleView = await ViewAsync(scopes, deal, cancellationToken).ConfigureAwait(false);
+            return new DealLineAddResult(DealLineAddStatus.Conflict, staleView);
         }
 
         var addition = deal.AddLine(
@@ -169,10 +176,12 @@ internal sealed class DealService : IDealService
                 .SingleOrDefaultAsync(d => d.Id == dealId, cancellationToken)
                 .ConfigureAwait(false);
 
-            return new DealLineAddResult(DealLineAddStatus.Conflict, current is null ? null : ToView(current));
+            var currentView = await ViewOrNullAsync(scopes, current, cancellationToken).ConfigureAwait(false);
+            return new DealLineAddResult(DealLineAddStatus.Conflict, currentView);
         }
 
-        return new DealLineAddResult(DealLineAddStatus.Added, ToView(deal));
+        var view = await ViewAsync(scopes, deal, cancellationToken).ConfigureAwait(false);
+        return new DealLineAddResult(DealLineAddStatus.Added, view);
     }
 
     public async Task<DealTransitionResponse> TransitionAsync(
@@ -204,8 +213,9 @@ internal sealed class DealService : IDealService
         // the remaining window to commit (edge 15).
         if (request.ExpectedVersion is { } expected && deal.Version != expected)
         {
+            var staleView = await ViewAsync(scopes, deal, cancellationToken).ConfigureAwait(false);
             return new DealTransitionResponse(
-                DealTransitionOutcome.Conflict, ToView(deal), deal.Stage, request.TargetStage);
+                DealTransitionOutcome.Conflict, staleView, deal.Stage, request.TargetStage);
         }
 
         // Rule 3's threshold is resolved on the deal's tenant and handed to the state machine, which decides
@@ -243,7 +253,7 @@ internal sealed class DealService : IDealService
 
             return new DealTransitionResponse(
                 DealTransitionOutcome.Conflict,
-                current is null ? null : ToView(current),
+                await ViewOrNullAsync(scopes, current, cancellationToken).ConfigureAwait(false),
                 result.FromStage,
                 result.ToStage);
         }
@@ -254,7 +264,8 @@ internal sealed class DealService : IDealService
             ? DealTransitionOutcome.Transitioned
             : DealTransitionOutcome.PendingApproval;
 
-        return new DealTransitionResponse(outcome, ToView(deal), result.FromStage, result.ToStage);
+        var view = await ViewAsync(scopes, deal, cancellationToken).ConfigureAwait(false);
+        return new DealTransitionResponse(outcome, view, result.FromStage, result.ToStage);
     }
 
     public async Task<DealDiscountApprovalResult> ApproveDiscountAsync(
@@ -284,14 +295,16 @@ internal sealed class DealService : IDealService
         if (!deal.PendingApproval)
         {
             // Nothing to clear. Returning the deal (unchanged) lets the caller confirm its state.
-            return new DealDiscountApprovalResult(DealDiscountApprovalOutcome.NotPending, ToView(deal));
+            var unchangedView = await ViewAsync(scopes, deal, cancellationToken).ConfigureAwait(false);
+            return new DealDiscountApprovalResult(DealDiscountApprovalOutcome.NotPending, unchangedView);
         }
 
         // The lead's optimistic pre-check, mirroring the transition path: a stale version is a conflict before
         // any change. The xmin token then guards the load-to-commit window below.
         if (request.ExpectedVersion is { } expected && deal.Version != expected)
         {
-            return new DealDiscountApprovalResult(DealDiscountApprovalOutcome.Conflict, ToView(deal));
+            var staleView = await ViewAsync(scopes, deal, cancellationToken).ConfigureAwait(false);
+            return new DealDiscountApprovalResult(DealDiscountApprovalOutcome.Conflict, staleView);
         }
 
         deal.ApproveDiscount();
@@ -310,10 +323,12 @@ internal sealed class DealService : IDealService
                 .ConfigureAwait(false);
 
             return new DealDiscountApprovalResult(
-                DealDiscountApprovalOutcome.Conflict, current is null ? null : ToView(current));
+                DealDiscountApprovalOutcome.Conflict,
+                await ViewOrNullAsync(scopes, current, cancellationToken).ConfigureAwait(false));
         }
 
-        return new DealDiscountApprovalResult(DealDiscountApprovalOutcome.Approved, ToView(deal));
+        var view = await ViewAsync(scopes, deal, cancellationToken).ConfigureAwait(false);
+        return new DealDiscountApprovalResult(DealDiscountApprovalOutcome.Approved, view);
     }
 
     private static DealTransitionOutcome Map(DealTransitionStatus status) => status switch
@@ -372,6 +387,8 @@ internal sealed class DealService : IDealService
 
         public Guid AccountId { get; set; }
 
+        public string? AccountName { get; set; }
+
         public Guid OwnerUserId { get; set; }
 
         public Guid? TeamId { get; set; }
@@ -402,6 +419,7 @@ internal sealed class DealService : IDealService
             r.Id,
             r.TenantId,
             r.AccountId,
+            r.AccountName,
             r.OwnerUserId,
             r.TeamId,
             r.RegionId,
@@ -417,11 +435,24 @@ internal sealed class DealService : IDealService
             // The grid is the header only; a single-deal read carries the lines.
             Array.Empty<DealLineView>());
 
-    private static DealView ToView(Deal d) =>
+    // The EF read paths resolve the parent's name through the caller's scope, never by a bare key lookup.
+    private async Task<DealView> ViewAsync(DataScopeSet scopes, Deal deal, CancellationToken cancellationToken)
+    {
+        var accountName = await AccountNames.ResolveAsync(_db, scopes, deal.AccountId, cancellationToken)
+            .ConfigureAwait(false);
+
+        return ToView(deal, accountName);
+    }
+
+    private async Task<DealView?> ViewOrNullAsync(DataScopeSet scopes, Deal? deal, CancellationToken cancellationToken) =>
+        deal is null ? null : await ViewAsync(scopes, deal, cancellationToken).ConfigureAwait(false);
+
+    private static DealView ToView(Deal d, string? accountName) =>
         new(
             d.Id,
             d.TenantId.Value,
             d.AccountId!.Value,
+            accountName,
             d.OwnerUserId.Value,
             d.TeamId,
             d.RegionId,
