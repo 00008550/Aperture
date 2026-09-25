@@ -178,7 +178,7 @@ and the per-field `errors` map — a 400 `ValidationProblemDetails` needs no con
 **Tests:** edge 20 (60 accounts; accounts read failing); existing grid specs updated.
 **Risk:** low.
 
-### [ ] P6 — Selected grid row: `aria-current`, not `aria-selected`
+### [x] P6 — Selected grid row: `aria-current`, not `aria-selected`
 **Touches:** `screens/accounts/AccountsGrid.tsx`, `screens/contacts/ContactsGrid.tsx`, `screens/deals/DealsGrid.tsx`, `AccountsScreen.test.tsx`, `ContactsScreen.test.tsx`, `DealsScreen.test.tsx`.
 **Done when:** edge 21 holds on all three grids; `data-selected` styling unchanged; `accesslint`/axe (as 010-P8 used) reports no `aria-allowed-attr` violation on the grids.
 **Tests:** edge 21 × 3 screens.
