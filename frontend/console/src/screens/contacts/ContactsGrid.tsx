@@ -158,7 +158,9 @@ function Rows({
                 // a keyboard user hears which record Enter would open (010-P8).
                 aria-label={contact.isDeparted ? `${contact.name}, departed` : contact.name}
                 tabIndex={0}
-                aria-selected={selected}
+                // The row opened in the detail pane. aria-selected is not allowed on a plain table row
+                // (no grid role); aria-current is valid anywhere and says "this is the open one" (011-P6).
+                aria-current={selected ? 'true' : undefined}
                 data-selected={selected}
                 data-departed={contact.isDeparted}
                 data-testid={`contact-row-${contact.id}`}

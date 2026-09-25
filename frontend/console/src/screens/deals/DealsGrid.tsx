@@ -154,7 +154,9 @@ function Rows({
                 // a keyboard user hears which record Enter would open and where it stands (010-P8).
                 aria-label={`${deal.name}, ${deal.stage}${deal.pendingApproval ? ', held for approval' : ''}`}
                 tabIndex={0}
-                aria-selected={selected}
+                // The row opened in the detail pane. aria-selected is not allowed on a plain table row
+                // (no grid role); aria-current is valid anywhere and says "this is the open one" (011-P6).
+                aria-current={selected ? 'true' : undefined}
                 data-selected={selected}
                 data-testid={`deal-row-${deal.id}`}
                 style={{ '--i': Math.min(index, 12) } as CSSProperties}
