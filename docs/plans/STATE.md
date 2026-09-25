@@ -9,9 +9,9 @@ The index for `docs/plans/`. `/ap-cycle` reads this first to work out where the 
 | 001 | Tenancy, identity and the authorization spine | done | — | — |
 | 009 | [Raw SQL scope safety: a correct Dapper path, and a gate](009-raw-sql-scope-safety.md) | done | — | — |
 | 002 | [Sales: accounts, contacts, deals + deal state machine](002-sales-accounts-contacts-deals.md) | done | — | — |
-| 003 | [Orders, fulfilment, stock reservation, idempotency](003-orders-fulfilment-stock-idempotency.md) | draft | — | P1 |
+| 003 | [Orders, fulfilment, stock reservation, idempotency](003-orders-fulfilment-stock-idempotency.md) | draft | — | P1 — **next plan**; re-surveyed 2026-09-25 at `dc43301`, awaiting user approval |
 | 010 | [Reactive console: a living Sales surface](010-reactive-console-experience.md) | done | — | — |
-| 011 | [Hardening follow-ups: Sales API errors, deal-line integrity, read-model names, a11y, detector drift](011-hardening-follow-ups.md) | in-progress | P7 (`feat/011-P7-rawsql-pattern`, PR #51 open) | — (last portion; plan 003 is next, awaiting user approval) |
+| 011 | [Hardening follow-ups: Sales API errors, deal-line integrity, read-model names, a11y, detector drift](011-hardening-follow-ups.md) | done | — | — |
 
 Statuses describe the **plan**, not a portion: `draft` → `approved` → `in-progress` → `done`.
 A plan is `in-progress` from the moment its first portion is built until its last portion merges;
