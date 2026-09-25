@@ -22,8 +22,6 @@ export interface ContactsGridProps {
   onLoadMore: () => void;
   loadingMore: boolean;
   onRetry: () => void;
-  /** The account's name when the caller can read it; null falls back to the short id. */
-  accountName: (id: string) => string | null;
 }
 
 /**
@@ -120,7 +118,6 @@ function Rows({
   departing,
   onLoadMore,
   loadingMore,
-  accountName,
 }: ContactsGridProps & { rows: ContactView[]; hasMore: boolean }) {
   const onKey = (event: KeyboardEvent<HTMLTableRowElement>, contact: ContactView) => {
     // Only the row itself selects; keys pressed on its buttons act on the buttons.
@@ -182,7 +179,7 @@ function Rows({
                 <td className="sub-cell">{contact.email ?? '—'}</td>
                 <td className="mono sub-cell">{contact.phone ?? '—'}</td>
                 <td className="sub-cell">
-                  <AccountName id={contact.accountId} name={accountName(contact.accountId)} />
+                  <AccountName id={contact.accountId} name={contact.accountName} />
                 </td>
                 <td className="sub-cell">{date.format(new Date(contact.createdAt))}</td>
                 <td className="num row-actions" onClick={(event) => event.stopPropagation()}>

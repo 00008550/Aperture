@@ -45,6 +45,7 @@ const deal = (id: string, over: Partial<DealView> = {}): DealView => ({
   id,
   tenantId: TENANT,
   accountId: ACCOUNT,
+  accountName: 'Contoso Freight',
   ownerUserId: USER,
   teamId: null,
   regionId: null,
@@ -550,28 +551,64 @@ describe('Create deal', () => {
 });
 
 describe('Account names on deals', () => {
-  it('Given accounts.read, when the grid and detail render, then the account column shows the account name', async () => {
-    stubFetch(
+  const sixty = Array.from({ length: 60 }, (_, i) =>
+    account(`aaaaaaaa-0000-0000-0000-${String(i + 1).padStart(12, '0')}`, `Account ${i + 1}`),
+  );
+
+  it('Given 60 accounts and a deal on the 60th, when the grid and detail render, then both show its name (not a short id) and the grid issues no accounts request', async () => {
+    const sixtieth = account(`aaaaaaaa-0000-0000-0000-${String(60).padStart(12, '0')}`, 'Account 60');
+    const fetchMock = stubFetch(
       session({ permissions: [Permissions.DealsRead, Permissions.AccountsRead] }),
-      dealsServer([deal('d1')], [account(ACCOUNT, 'Contoso Freight')]).route,
+      // The accounts read would only ever hold the first page of 50; the name must not depend on it.
+      dealsServer([deal('d1', { accountId: sixtieth.id, accountName: sixtieth.name })], sixty.slice(0, 50)).route,
     );
     renderAt('/deals/d1');
 
     const row = await screen.findByTestId('deal-row-d1');
-    await waitFor(() => expect(row).toHaveTextContent('Contoso Freight'));
-    const detail = await screen.findByTestId('deal-detail');
-    expect(detail).toHaveTextContent('Contoso Freight');
+    expect(row).toHaveTextContent('Account 60');
+    expect(row).not.toHaveTextContent(sixtieth.id.slice(0, 8));
+    expect(await screen.findByTestId('deal-detail')).toHaveTextContent('Account 60');
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(requests(fetchMock, 'GET', '/api/accounts')).toHaveLength(0);
   });
 
-  it('Given no accounts.read, when the grid renders, then the account falls back to the short id and no GET /api/accounts is issued', async () => {
-    const fetchMock = stubFetch(session(), dealsServer([deal('d1')], [account(ACCOUNT, 'Contoso Freight')]).route);
-    renderAt('/deals');
+  it('Given the accounts read errors, when the create panel is open, then grid and detail names still render from the deal payload', async () => {
+    const server = dealsServer([deal('d1')]);
+    const fetchMock = stubFetch(
+      session({ permissions: [Permissions.DealsRead, Permissions.DealsWrite, Permissions.AccountsRead] }),
+      (url, init) => (url.pathname === '/api/accounts' ? json({ error: 'boom' }, 500) : server.route(url, init)),
+    );
+    renderAt('/deals/d1');
+
+    expect(await screen.findByTestId('deal-detail')).toHaveTextContent('Contoso Freight');
+    await userEvent.click(screen.getByRole('button', { name: 'New deal' }));
+    await waitFor(() => expect(requests(fetchMock, 'GET', '/api/accounts').length).toBeGreaterThan(0));
+    expect(screen.getByTestId('deal-row-d1')).toHaveTextContent('Contoso Freight');
+  });
+
+  it('Given accountName is null (account outside the caller’s scope), when the grid and detail render, then the account falls back to the short id', async () => {
+    stubFetch(session(), dealsServer([deal('d1', { accountName: null })]).route);
+    renderAt('/deals/d1');
 
     const row = await screen.findByTestId('deal-row-d1');
     expect(row).toHaveTextContent(ACCOUNT.slice(0, 8));
-    expect(row).not.toHaveTextContent('Contoso Freight');
-    await new Promise((resolve) => setTimeout(resolve, 20));
-    expect(requests(fetchMock, 'GET', '/api/accounts')).toHaveLength(0);
+    expect(await screen.findByTestId('deal-detail')).toHaveTextContent(ACCOUNT.slice(0, 8));
+  });
+
+  it('Given accounts.read, when New deal opens, then the account picker still offers the visible accounts', async () => {
+    stubFetch(
+      session({ permissions: [Permissions.DealsRead, Permissions.DealsWrite, Permissions.AccountsRead] }),
+      dealsServer([deal('d1')], [account(ACCOUNT, 'Contoso Freight')]).route,
+    );
+    renderAt('/deals');
+
+    await screen.findByRole('table', { name: 'Deals' });
+    await userEvent.click(screen.getByRole('button', { name: 'New deal' }));
+    const panel = screen.getByRole('complementary', { name: 'New deal' });
+    await waitFor(() =>
+      expect(panel.querySelector(`#deal-account-options option[value="${ACCOUNT}"]`)).not.toBeNull(),
+    );
+    expect(within(panel).getByLabelText('Account ID')).toHaveAttribute('list', 'deal-account-options');
   });
 });
 

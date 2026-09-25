@@ -3,7 +3,6 @@ import { useNavigate, useParams } from 'react-router';
 import { useDeals } from '../../data/useDeals';
 import { Permissions } from '../../permissions';
 import { useSession } from '../../useSession';
-import { useAccountLookup } from '../AccountName';
 import { CreateDealPanel, DealDetailPanel } from './DealPanels';
 import { DealsGrid } from './DealsGrid';
 import { GuardedButton } from '../../a11y/GuardedButton';
@@ -29,7 +28,6 @@ export function DealsScreen() {
   const canApprove = can(Permissions.DealsDiscountApprove);
   const [creating, setCreating] = useState(false);
   const deals = useDeals({ limit: DEALS_PAGE_SIZE });
-  const accounts = useAccountLookup();
 
   const selectedId = creating ? null : (dealId ?? null);
   const panelOpen = creating || selectedId !== null;
@@ -72,15 +70,13 @@ export function DealsScreen() {
           onLoadMore={() => void deals.fetchNextPage()}
           loadingMore={deals.isFetchingNextPage}
           onRetry={() => void deals.refetch()}
-          accountName={accounts.nameOf}
-        />
+                  />
 
         {creating && (
           // The selected deal's account seeds the draft once; typing is never overwritten.
           <CreateDealPanel
             canWrite={canWrite}
             initialAccountId={selectedAccount}
-            accountOptions={accounts.options}
             onClose={() => setCreating(false)}
             onCreated={(deal) => {
               setCreating(false);
@@ -95,8 +91,7 @@ export function DealsScreen() {
             id={selectedId}
             canWrite={canWrite}
             canApprove={canApprove}
-            accountName={accounts.nameOf}
-            onClose={() => navigate('/deals')}
+                        onClose={() => navigate('/deals')}
           />
         )}
       </div>

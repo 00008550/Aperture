@@ -54,6 +54,7 @@ const deal = (over: Partial<DealView> = {}): DealView => ({
   id: 'd1',
   tenantId: TENANT,
   accountId: ACCOUNT,
+  accountName: null,
   ownerUserId: USER,
   teamId: null,
   regionId: null,
