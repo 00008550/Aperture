@@ -184,7 +184,7 @@ and the per-field `errors` map — a 400 `ValidationProblemDetails` needs no con
 **Tests:** edge 21 × 3 screens.
 **Risk:** low.
 
-### [ ] P7 — One raw-SQL entry-point pattern across all three detectors
+### [x] P7 — One raw-SQL entry-point pattern across all three detectors
 **Touches:** `scripts/measure.sh` (shared `RAWSQL_PATTERN`, shared exempt-file list, used by `rawsql` and GATE 2); `Aperture.SharedKernel.Tests/Architecture/RawSqlIsScopedTests.cs` (same alternation + `DemoSeed.cs` exact-path exemption + a planted-fixture case).
 **Done when:** `rawsql` lists `DemoSeed.cs:209,212` as exempt (by exact path) rather than not at all; the architecture test and both `measure.sh` modes agree on every match in `src/`; the builder shows, in the PR body, a planted `ExecuteSqlAsync` going red in all three and green when removed.
 **Tests:** edge 22; the architecture test's fixture list gains `ExecuteSqlAsync`, `ExecuteSql`, `FromSql`, `ExecuteSqlInterpolated`, `.Query<` cases.
