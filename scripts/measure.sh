@@ -147,12 +147,35 @@ tests() {
 # the source tree, and that architecture test is the version that fails CI. Kept as its own
 # mode (009-P1) so it can be read on its own, mirroring the endpoint/gate split above.
 #
-# Detector: the entry points that bypass EF's global query filter — Dapper, and EF's own
-# FromSqlRaw/FromSqlInterpolated/ExecuteSqlRaw escape hatches, plus a bare NpgsqlConnection.
-RAWSQL_PATTERN='Dapper|NpgsqlConnection|FromSqlRaw|FromSqlInterpolated|ExecuteSqlRaw'
-# The sanctioned home of the Dapper wrapper (009-P3 lands it here). A path rule, not a magic
-# comment: an exemption a developer can paste anywhere is not an exemption, it is a bypass.
-RAWSQL_SANCTIONED='src/Aperture\.SharedKernel/Data/'
+# Detector: the pattern and the exemptions are NOT defined here. They live in
+# scripts/rawsql-rules.txt, which this mode, GATE 2 and RawSqlIsScopedTests all read (011-P7) —
+# three private copies of one invariant had drifted, which is how a bypass ships green.
+RAWSQL_RULES="scripts/rawsql-rules.txt"
+# CR stripped: a Windows checkout with autocrlf would otherwise put '\r' into the regex.
+rawsql_rule() { tr -d '\r' < "$RAWSQL_RULES" | grep -E "^$1=" | sed "s/^$1=//"; }
+RAWSQL_PATTERN=$(rawsql_rule pattern)
+if [ -z "$RAWSQL_PATTERN" ]; then
+  # Fail closed: a missing pattern would match nothing and every raw-SQL gate would pass.
+  echo "measure.sh: no pattern= in $RAWSQL_RULES — refusing to run raw-SQL detectors" >&2
+  exit 3
+fi
+
+# Prints why a path is exempt, or nothing if it is a production file. The one classifier both
+# `rawsql` and GATE 2 use; RawSqlIsScopedTests.ExemptionFor implements the same three rule kinds.
+rawsql_exemption() {
+  local file=$1 v
+  while IFS= read -r v; do
+    [ -n "$v" ] && case "$file" in *"$v"*) echo 'test project — exempt by path'; return ;; esac
+  done < <(rawsql_rule exempt-segment)
+  while IFS= read -r v; do
+    [ -n "$v" ] && case "$file" in "$v"*) echo 'sanctioned wrapper — allowed'; return ;; esac
+  done < <(rawsql_rule exempt-dir)
+  while IFS= read -r v; do
+    [ -n "$v" ] && [ "$file" = "$v" ] && { echo 'exempt by exact path'; return; }
+  done < <(rawsql_rule exempt-file)
+}
+
+rawsql_hits() { grep -rnE "$RAWSQL_PATTERN" --include=*.cs src 2>/dev/null | sort; }
 
 rawsql() {
   hr "RAW SQL (touchpoints -> is it in the sanctioned project?)"
@@ -162,20 +185,17 @@ rawsql() {
     local file=${hit%%:*}
     local rest=${hit#*:}
     local lineno=${rest%%:*}
-    local label status
-    if printf '%s' "$file" | grep -qE '\.Tests/'; then
-      status='test project — exempt by path'
-      exempt=$((exempt + 1))
-    elif printf '%s' "$file" | grep -qE "$RAWSQL_SANCTIONED"; then
-      status='sanctioned wrapper — allowed'
+    local status
+    status=$(rawsql_exemption "$file")
+    if [ -n "$status" ]; then
       exempt=$((exempt + 1))
     else
       status='*** PRODUCTION CALL SITE ***'
       production=$((production + 1))
     fi
     printf '  %-58s %s:%s\n' "$status" "${file#./}" "$lineno"
-  done < <(grep -rnE "$RAWSQL_PATTERN" --include=*.cs src 2>/dev/null | sort)
-  printf '\n  %d production raw-SQL call site(s), %d exempt (test or sanctioned)\n' \
+  done < <(rawsql_hits)
+  printf '\n  %d production raw-SQL call site(s), %d exempt (test, sanctioned or exact-path)\n' \
     "$production" "$exempt"
   if [ "$production" -gt 0 ]; then
     printf '  ^ each must move behind ScopedConnection (009) or it is a cross-tenant read waiting to happen\n'
@@ -210,27 +230,17 @@ gate() {
     local file=${hit%%:*}
     local rest=${hit#*:}
     local lineno=${rest%%:*}
+    [ -n "$(rawsql_exemption "$file")" ] && continue
     if ! sed -n "$((lineno > 4 ? lineno - 4 : 1)),$((lineno + 12))p" "$file" | grep -qi 'tenant'; then
       printf '  %s:%s  raw SQL with no tenant_id nearby\n' "${file#./}" "$lineno"
       leaked=$((leaked + 1))
     fi
-    # Matched on Dapper/EF raw-SQL entry points specifically. A bare `ExecuteAsync(`
-    # was the first pattern here and it flagged BackgroundService.ExecuteAsync — a gate
-    # that cries wolf gets disabled, so it is narrow on purpose.
-    # Test projects are exempt by path rule, like GATE 1 and `rawsql` mode: a test file
-    # naming these keywords is a fixture or the detector's own test data, not a production
-    # read. (009-P1 added RawSqlIsScopedTests.cs, full of such fixtures, and tripped this.)
-    # The sanctioned wrapper (009-P4) is exempt by the same path rule: it does not carry a
-    # `tenant_id` WHERE predicate at all — it enforces tenant + scope structurally via the
-    # RLS reader role and per-read session context, proven by ScopedConnectionRlsTests, not
-    # by a nearby literal. That is the whole point of the wrapper; grepping it for "tenant"
-    # would demand the fail-open string composition the wrapper exists to remove.
-    # The Development demo seed (010-P5a) is exempt by exact file path, not directory: its two
-    # ExecuteSqlAsync calls are a cluster-level `ALTER ROLE` setting the dev aperture_reader
-    # password (bound param + format %L/%I). They touch no tenant rows, and the seed is
-    # unreachable outside Development. Any other file under Development/ is still gated.
-  done < <(grep -rn --include=*.cs -E 'FromSql(Raw|Interpolated)?|ExecuteSql(Raw|Interpolated)?|\.Query(Async|First|FirstAsync|Single|SingleAsync|Multiple)?<|Dapper' src 2>/dev/null | grep -v '\.Tests/' | grep -vE "$RAWSQL_SANCTIONED" \
-    | grep -v '^src/Aperture\.Api/Development/DemoSeed\.cs:')
+    # Same pattern and same exemptions as `rawsql` mode and RawSqlIsScopedTests — all read
+    # scripts/rawsql-rules.txt (011-P7), where each exemption's reason is written down once:
+    # test projects (fixtures), the sanctioned wrapper (tenant + scope enforced by RLS, not by
+    # a nearby literal), and one demo-seed file by exact path. Any other file under Development/ is
+    # still gated.
+  done < <(rawsql_hits)
   if [ "$leaked" -gt 0 ]; then
     printf '  FAIL: %d raw SQL call(s) with no visible tenant predicate\n' "$leaked"
     failures=$((failures + 1))
