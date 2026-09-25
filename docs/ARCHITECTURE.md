@@ -120,8 +120,9 @@ was never selected cannot leak through a serialization change.
   current state forbids is a `422`; a lost concurrency race is a `409` with current state. Anything
   else is a `500` ProblemDetails carrying a `traceId` and no exception detail. The assistant (§9)
   depends on this: it can only self-correct from a 400 that says what was wrong.
-- **Pessimistic where the domain is genuinely contended**: stock reservation takes
-  `SELECT ... FOR UPDATE` on the stock row. Two agents confirming the last unit is a documented,
+- **Pessimistic where the domain is genuinely contended**: stock reservation takes the stock row's
+  lock with a conditional decrement (`UPDATE … WHERE available_qty >= @q`, via EF `ExecuteUpdate`),
+  so the loser re-evaluates and fails fast instead of retrying. Two agents confirming the last unit is a documented,
   frequent event (`DOMAIN.md` §2), and optimistic retry there converts a lost update into a
   livelock under load.
 - **Idempotency** is a first-class ingress concern. Every state-changing external entry — API

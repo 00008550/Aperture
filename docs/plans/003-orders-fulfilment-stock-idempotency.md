@@ -104,16 +104,16 @@ DOMAIN.md §2 (Order), §5 (failures as acceptance criteria):
 | Synchronous `Aperture.Contracts` read: `IWonDealSource` → `WonDealSnapshot`, `IAccountCreditReader`, implemented in Sales | **Essential** | The §1-sanctioned cross-module path; a pull needs no outbox. Contracts gains a ProjectReference to `Aperture.SharedKernel` so the signature can take a `DataScopeSet` (the explicit-parameter convention); no Sales type crosses. |
 | Credit limit read **live** at confirm, not snapshotted | **Essential** | It lives in Sales and changes. |
 | **Per-account credit serialisation** via `orders.account_credit_locks(tenant_id, account_id)` touched by `ExecuteUpdateAsync` at the start of the confirm transaction | **Essential** (new) | The old draft claimed the order's `xmin` mitigates concurrent confirms. It does not: two confirms of **different** orders for one account touch different rows, so both can pass the SUM check and jointly exceed the limit. Taking a row lock on a per-account row serialises them. Row created in the order-create transaction (unique `(tenant_id, account_id)`; a unique-violation on create means it exists). |
-| Outstanding balance = SUM of the account's orders in `confirmed/reserved/picking/shipped` (computed, not stored) | **Essential**, stage set pending **Q2** | No invoicing/payments exist; a stored running balance is the drift bug class of DOMAIN §5.2. |
+| Outstanding balance = SUM of the account's orders in `confirmed/reserved/picking/shipped` (computed, not stored); `draft`, `delivered`, `cancelled`, `returned` do not count | **Essential** — user decision 2026-09-25 (delivered is treated as settled until payments exist) | No invoicing/payments exist; a stored running balance is the drift bug class of DOMAIN §5.2. |
 | `orders.stock_items` placeholder, gated by new `stock.write` / `stock.read` | **Essential now, superseded by 006** | User decision 2026-09-05 (unchanged). Tenant-owned, **not** agent-scoped (fulfilment sees all tenant stock). |
-| Reservation as a **conditional atomic decrement** — `ExecuteUpdateAsync(… WHERE tenant_id=@t AND product_ref=@p AND available_qty >= @q)`; 0 rows affected → insufficient | **Essential** (revised) | Same guarantee §5 wants from `SELECT … FOR UPDATE` (the UPDATE takes the row lock; the loser blocks, then re-evaluates the predicate and affects 0 rows — no retry, no livelock) with no raw SQL, so `rawsql-rules.txt` stays unexempted. Multi-line orders decrement in `product_ref` order inside one transaction (deadlock-free lock order); any 0 → rollback. §5's wording names `FOR UPDATE` — see **Q3**. |
+| Reservation as a **conditional atomic decrement** — `ExecuteUpdateAsync(… WHERE tenant_id=@t AND product_ref=@p AND available_qty >= @q)`; 0 rows affected → insufficient | **Essential** (revised) | Same guarantee §5 wants from `SELECT … FOR UPDATE` (the UPDATE takes the row lock; the loser blocks, then re-evaluates the predicate and affects 0 rows — no retry, no livelock) with no raw SQL, so `rawsql-rules.txt` stays unexempted. Multi-line orders decrement in `product_ref` order inside one transaction (deadlock-free lock order); any 0 → rollback. §5 reworded accordingly (user-approved 2026-09-25). |
 | Adding a sanctioned raw-SQL locking helper under `SharedKernel/Data/` to keep literal `FOR UPDATE` | **Rejected** | Widens the one exempt directory for a mechanism LINQ already provides. |
 | Optimistic `xmin` on `orders` for every transition | **Essential** | Low contention on the order row itself; identical to `Deal`. |
 | Per-module `orders.idempotency_keys` (key + effect in one transaction) | **Essential** | User decision 2026-09-05; §5 already says so. Row stores a request fingerprint (method + route + body hash), status code and response body. |
 | `Idempotency-Key` **required** on every order command, console and external | **Essential** | User decision 2026-09-05. Missing → `DomainValidationException("Idempotency-Key", …)` → 400 via the one handler, before load. |
 | Same key, different request fingerprint → **422** | **Essential** (new) | A reused key with a different body is a client bug; replaying the old response would silently mis-answer it. Matches the IETF Idempotency-Key draft. |
 | Errors via `DomainValidationException` / 422 / 409-with-state | **Essential** | ARCHITECTURE §5 "Errors are contracts" (011). |
-| At most one live order per won deal — partial unique `(tenant_id, deal_id) WHERE stage <> 'cancelled'` | **Proposed**, pending **Q1** | Idempotency keys stop a double-click, not two tabs with two keys. |
+| At most one live order per won deal — partial unique `(tenant_id, deal_id) WHERE stage <> 'cancelled'`; a second create → 409 with the existing order | **Essential** — user decision 2026-09-25 | Idempotency keys stop a double-click, not two tabs with two keys. The unique index is the race-proof guard; the service maps its violation to 409 + the existing order. A cancelled order frees the deal for a new one. |
 | `accountName` copied onto the order at creation | **Essential** | No cross-schema join (§1); label only. |
 | Outbox + worker; `DealWon`/`OrderConfirmed` events | **Deferred to 004** | User decision 2026-09-05 (unchanged): no consumer until 005/006. |
 | Field-level cost/margin hiding | **Deferred** — trigger: cost price exists (006) | No cost field yet. |
@@ -157,7 +157,7 @@ with `errors.<field>`; 422/409 as stated.
 10. **Stale `xmin`** → 409 with current order.
 11. **Partial shipment** — 5-unit line, ship 3 → line keeps 2 open on the **same** order.
 12. **Replay, same key + same body** → stored response (same order id/state), no second write.
-    Different key → acts anew (subject to Q1 for create).
+    Different key → acts anew (for create: see edge 19).
 12a. **No `Idempotency-Key`** on any of the five commands → 400 `errors["Idempotency-Key"]`, before load,
     no console exemption. A caller lacking the permission gets 403, not 400.
 12b. **Same key, different body** → 422, no write.
@@ -169,6 +169,12 @@ with `errors.<field>`; 422/409 as stated.
 16. **Non-positive ship quantity / ship more than open** → 400 `errors.quantity` / 422 respectively.
 17. **Stock seed**: `PUT /api/stock/{productRef}` with negative quantity → 400; caller with only
     `orders.write` → 403.
+19. **Second live order for a won deal** (different key, or concurrent creates) → exactly one order;
+    the other gets 409 with the existing order in the body. After that order is `cancelled`, a new create
+    succeeds.
+20. **Outstanding balance stage set.** Given an account with orders in every stage, When confirming,
+    Then only `confirmed/reserved/picking/shipped` totals count; a `delivered` order no longer consumes
+    credit (`shipped → delivered` frees its amount), `draft/cancelled/returned` never do.
 18. **Delivery webhook replay** (`delivered → shipped`) — webhook ingress is 006; the machine's rejection
     is tested here.
 
@@ -179,7 +185,7 @@ with `errors.<field>`; 422/409 as stated.
 
 **Schema `orders`:** `orders` (`ITenantOwned` + `IScopedResource`, five scope columns, `xmin`, `stage`,
 `deal_id`, `account_id`, `account_name`, `credit_override_by`/`_reason`, timestamps; RLS;
-partial unique on `deal_id` if Q1 = yes) · `order_lines` (parent-loaded: `product_ref`, `unit_price`,
+partial unique `(tenant_id, deal_id) WHERE stage <> 'cancelled'`) · `order_lines` (parent-loaded: `product_ref`, `unit_price`,
 `quantity`, `quantity_shipped`) · `shipments` (parent-loaded) · `stock_items` (tenant RLS;
 unique `(tenant_id, product_ref)`, `available_qty`, `reserved_qty`, checks `>= 0`) ·
 `account_credit_locks` (`(tenant_id, account_id)` PK) · `idempotency_keys` (`(tenant_id, key)` unique,
@@ -218,9 +224,9 @@ credit read scope-filtered; contract-surface test (no `Aperture.Modules.*` type 
 `account_credit_locks`, RLS, reader GRANT), `Order`/`OrderLine`, `OrderService` (create/get/grid),
 `OrderEndpoints`, `Program.cs`.
 **Done when:** create yields a `draft` only from a won deal (422/404 otherwise), lines + scope + name
-copied, credit lock row ensured; scoped keyset grid and get; `orders.read`/`orders.write` enforced;
+copied, credit lock row ensured; a second live order for the same deal → 409 with the existing order; scoped keyset grid and get; `orders.read`/`orders.write` enforced;
 measure.sh shows the Orders test project and 21 routes.
-**Tests:** edges 1, 2, 3, 13, 15 (orders grid); EF vs RLS grid parity; 401/403; Q1 constraint if approved.
+**Tests:** edges 1, 2, 3, 13, 15 (orders grid), 19 (incl. concurrent creates on real PostgreSQL); EF vs RLS grid parity; 401/403.
 **Risk:** high
 
 ### [ ] P3 — Order state machine + confirm with credit check, serialised per account
@@ -228,7 +234,7 @@ measure.sh shows the Orders test project and 21 routes.
 confirm endpoint + host-side audit, tests.
 **Done when:** confirm passes within credit or with an audited override; 422/409/400 per §5; concurrent
 confirms on one account cannot jointly exceed the limit.
-**Tests:** edges 4, 5, 6, 9, 10, 14 (real PostgreSQL, two contexts).
+**Tests:** edges 4, 5, 6, 9, 10, 14 (real PostgreSQL, two contexts), 20 (later stages seeded directly until P6 builds them).
 **Risk:** medium
 
 ### [ ] P4 — Stock ledger + reservation under contention; cancel releases
@@ -253,7 +259,7 @@ write; fingerprint mismatch → 422; concurrent duplicates collapse to one write
 (`picking`/`shipped`/`delivered`/`returned`), ship endpoint, tests.
 **Done when:** partial ship keeps backorder on the same order; `delivered → shipped` rejected; ship
 releases `reserved_qty` for shipped units.
-**Tests:** edges 11, 16, 18; fully-shipped → `shipped`; terminal targets-only.
+**Tests:** edges 11, 16, 18, 20 (`shipped → delivered` frees credit end-to-end); fully-shipped → `shipped`; terminal targets-only.
 **Risk:** medium
 
 ## Open questions for the user
@@ -262,20 +268,13 @@ releases `reserved_qty` for shipped units.
 `orders.idempotency_keys`; `orders.stock_items` placeholder gated by `stock.write`/`stock.read`;
 `Idempotency-Key` required on all order commands.
 
-**New (2026-09-25):**
+**Resolved 2026-09-25 (user, in chat):**
 
-1. **One live order per won deal?** Proposal: yes — partial unique index; a second create returns 409
-   with the existing order. Alternative: allow many (split deliveries as separate orders), which DOMAIN §2
-   "one order, not two" argues against.
-2. **Which stages count toward "outstanding balance"?** No invoicing/payments exist. Proposal:
-   `confirmed`, `reserved`, `picking`, `shipped` count; `delivered` stops counting (treated as settled
-   until payments exist). Alternative: `delivered` keeps counting, so an account's exposure only ever grows
-   in 003.
-3. **ARCHITECTURE §5 wording (proposed diff, not applied):**
-   `- **Pessimistic where the domain is genuinely contended**: stock reservation takes`
-   `-  \`SELECT ... FOR UPDATE\` on the stock row.`
-   `+ **Pessimistic where the domain is genuinely contended**: stock reservation takes the stock row's`
-   `+  lock with a conditional decrement (\`UPDATE … WHERE available_qty >= @q\`, via EF \`ExecuteUpdate\`),`
-   `+  so the loser re-evaluates and fails fast instead of retrying.`
-   Needed because literal `FOR UPDATE` would require raw SQL, which `rawsql-rules.txt` forbids outside
-   `SharedKernel/Data/`.
+1. **One live order per won deal** — yes; a second attempt is 409 returning the existing order. Folded into
+   *Design decisions*, edge 19, P2.
+2. **Outstanding balance** = `confirmed/reserved/picking/shipped`; `delivered` stops counting. Folded into
+   *Design decisions*, edge 20, P3/P6.
+3. **ARCHITECTURE §5 rewording** — approved and applied (conditional decrement via EF `ExecuteUpdate`
+   replaces the literal `SELECT … FOR UPDATE`).
+
+No open questions remain.
