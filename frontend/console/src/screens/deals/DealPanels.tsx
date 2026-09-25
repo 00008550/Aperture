@@ -1,5 +1,6 @@
 import { useState, type FormEvent, type ReactNode } from 'react';
 import type { DealView } from '../../api';
+import { useAccounts } from '../../data/useAccounts';
 import { useAddDealLine, useCreateDeal, useDeal } from '../../data/useDeals';
 import { Permissions } from '../../permissions';
 import { AccountName } from '../AccountName';
@@ -72,13 +73,11 @@ const DEAL_LABELS: Record<keyof DealDraft, string> = {
 export function CreateDealPanel({
   canWrite,
   initialAccountId,
-  accountOptions,
   onClose,
   onCreated,
 }: {
   canWrite: boolean;
   initialAccountId: string;
-  accountOptions: { id: string; name: string }[];
   onClose: () => void;
   onCreated: (deal: DealView) => void;
 }) {
@@ -88,6 +87,8 @@ export function CreateDealPanel({
   });
   const [problems, setProblems] = useState<string[]>([]);
   const create = useCreateDeal();
+  const accounts = useAccounts({ limit: 50 });
+  const accountOptions = accounts.grid.kind === 'rows' ? accounts.grid.rows : [];
   const flight = useSingleFlight();
 
   const submit = (event: FormEvent) => {
@@ -187,13 +188,11 @@ export function DealDetailPanel({
   id,
   canWrite,
   canApprove,
-  accountName,
   onClose,
 }: {
   id: string;
   canWrite: boolean;
   canApprove: boolean;
-  accountName: (id: string) => string | null;
   onClose: () => void;
 }) {
   const detail = useDeal(id);
@@ -218,7 +217,6 @@ export function DealDetailPanel({
           refreshing={detail.isFetching}
           canWrite={canWrite}
           canApprove={canApprove}
-          accountName={accountName}
         />
       )}
     </Panel>
@@ -230,13 +228,11 @@ function DealDetail({
   refreshing,
   canWrite,
   canApprove,
-  accountName,
 }: {
   deal: DealView;
   refreshing: boolean;
   canWrite: boolean;
   canApprove: boolean;
-  accountName: (id: string) => string | null;
 }) {
   const total = deal.lines.reduce((sum, line) => sum + lineTotal(line), 0);
 
@@ -255,7 +251,7 @@ function DealDetail({
         <div>
           <dt>Account</dt>
           <dd>
-            <AccountName id={deal.accountId} name={accountName(deal.accountId)} />
+            <AccountName id={deal.accountId} name={deal.accountName} />
           </dd>
         </div>
         <div>

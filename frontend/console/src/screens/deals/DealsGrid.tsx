@@ -12,7 +12,6 @@ export interface DealsGridProps {
   onLoadMore: () => void;
   loadingMore: boolean;
   onRetry: () => void;
-  accountName: (id: string) => string | null;
 }
 
 /**
@@ -116,7 +115,6 @@ function Rows({
   onSelect,
   onLoadMore,
   loadingMore,
-  accountName,
 }: DealsGridProps & { rows: DealView[]; hasMore: boolean }) {
   const onKey = (event: KeyboardEvent<HTMLTableRowElement>, id: string) => {
     if (event.key === 'Enter' || event.key === ' ') {
@@ -168,7 +166,7 @@ function Rows({
                   {deal.name}
                 </td>
                 <td className="sub-cell">
-                  <AccountName id={deal.accountId} name={accountName(deal.accountId)} />
+                  <AccountName id={deal.accountId} name={deal.accountName} />
                 </td>
                 <td>
                   <StageChip stage={deal.stage} pending={deal.pendingApproval} />

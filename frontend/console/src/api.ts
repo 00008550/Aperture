@@ -222,6 +222,8 @@ export interface ContactView {
   id: string;
   tenantId: string;
   accountId: string;
+  /** The account's current name, or `null` when the account is outside the caller's scope. */
+  accountName: string | null;
   ownerUserId: string;
   teamId: string | null;
   regionId: string | null;
@@ -256,6 +258,8 @@ export interface DealView {
   id: string;
   tenantId: string;
   accountId: string;
+  /** The account's current name, or `null` when the account is outside the caller's scope. */
+  accountName: string | null;
   ownerUserId: string;
   teamId: string | null;
   regionId: string | null;
