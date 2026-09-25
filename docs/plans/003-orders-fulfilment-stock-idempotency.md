@@ -209,7 +209,7 @@ console Orders screens; fixing `DealEndpoints.cs:206`'s ad-hoc 400.
 
 ## Portions
 
-### [ ] P1 — The won-deal and credit read contracts (Sales side)
+### [x] P1 — The won-deal and credit read contracts (Sales side)
 **Touches:** `Aperture.Contracts` (+ ProjectReference to SharedKernel; `IWonDealSource`, `WonDealSnapshot`,
 `IAccountCreditReader`), Sales `Application` implementations + `SalesModule` registration, Sales tests.
 **Done when:** an in-process caller gets a won deal's snapshot (ids, tenant, scope facts, `accountName`,
