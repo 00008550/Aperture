@@ -1,6 +1,6 @@
 # 003 — Orders, fulfilment, stock reservation, idempotency
 
-Status: approved           <!-- draft → approved → in-progress → done -->
+Status: in-progress        <!-- draft → approved → in-progress → done -->
 Roadmap: ARCHITECTURE.md §13 item 003 — "Orders, fulfilment, stock reservation, idempotency. The
 contended, transactional core. Needs 002's deals to exist."
 
@@ -209,7 +209,7 @@ console Orders screens; fixing `DealEndpoints.cs:206`'s ad-hoc 400.
 
 ## Portions
 
-### [ ] P1 — The won-deal and credit read contracts (Sales side)
+### [x] P1 — The won-deal and credit read contracts (Sales side)
 **Touches:** `Aperture.Contracts` (+ ProjectReference to SharedKernel; `IWonDealSource`, `WonDealSnapshot`,
 `IAccountCreditReader`), Sales `Application` implementations + `SalesModule` registration, Sales tests.
 **Done when:** an in-process caller gets a won deal's snapshot (ids, tenant, scope facts, `accountName`,

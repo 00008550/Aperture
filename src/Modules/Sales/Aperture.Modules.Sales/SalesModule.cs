@@ -1,3 +1,4 @@
+using Aperture.Contracts.Sales;
 using Aperture.Modules.Sales.Application;
 using Aperture.Modules.Sales.Persistence;
 using Aperture.SharedKernel.Multitenancy;
@@ -42,6 +43,12 @@ public static class SalesModule
         services.AddScoped<IAccountService, AccountService>();
         services.AddScoped<IContactService, ContactService>();
         services.AddScoped<IDealService, DealService>();
+
+        // The Aperture.Contracts reads other modules make (plan 003-P1). One scoped reader backs both
+        // interfaces; consumers bind to the contract, never to a Sales type.
+        services.AddScoped<SalesContractReader>();
+        services.AddScoped<IWonDealSource>(sp => sp.GetRequiredService<SalesContractReader>());
+        services.AddScoped<IAccountCreditReader>(sp => sp.GetRequiredService<SalesContractReader>());
 
         return services;
     }
