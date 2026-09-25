@@ -172,7 +172,7 @@ and the per-field `errors` map — a 400 `ValidationProblemDetails` needs no con
 **Tests:** edges 17–19; differential across Self/Team/Region/Account grants on **both** the EF and `ScopedConnection` paths; rename-then-read.
 **Risk:** medium — a join inside the RLS read path; the differential test is the gate. Blocked on Q2.
 
-### [ ] P5 — Console uses the server's account name
+### [x] P5 — Console uses the server's account name
 **Touches:** `frontend/console/src/api.ts` (types), `screens/AccountName.tsx`, `screens/contacts/ContactsGrid.tsx` + `ContactsScreen.tsx`, `screens/deals/DealsGrid.tsx` + `DealsScreen.tsx` (+ deal detail), their specs.
 **Done when:** grids and deal detail render `accountName` from the row, fall back to the short id only when it is `null`; no grid issues an accounts request just to label rows; the create-contact/deal account picker still works. Browser-verified in light and dark.
 **Tests:** edge 20 (60 accounts; accounts read failing); existing grid specs updated.
