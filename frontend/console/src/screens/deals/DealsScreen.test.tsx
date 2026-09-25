@@ -270,6 +270,24 @@ describe('Deals grid', () => {
   });
 });
 
+describe('Deal row selection', () => {
+  it('Given the grid, when nothing then one row is selected, then no row is current, then exactly that row carries aria-current and none carries aria-selected (edge 21)', async () => {
+    stubFetch(session(), dealsServer([deal('d1'), deal('d2'), deal('d3')]).route);
+    renderAt('/deals');
+
+    const row = await screen.findByTestId('deal-row-d2');
+    const body = row.closest('tbody')!;
+    expect(body.querySelectorAll('tr[aria-current]')).toHaveLength(0);
+
+    await userEvent.click(row);
+
+    await waitFor(() => expect(row).toHaveAttribute('aria-current', 'true'));
+    expect(body.querySelectorAll('tr[aria-current]')).toHaveLength(1);
+    expect(body.querySelectorAll('tr[aria-selected]')).toHaveLength(0);
+    expect(row).toHaveAttribute('data-selected', 'true');
+  });
+});
+
 describe('Deal detail', () => {
   it('Given a deal with lines, when it is selected, then the detail shows its lines while the grid omits them, and the URL names the deal', async () => {
     const server = dealsServer([
@@ -290,7 +308,7 @@ describe('Deal detail', () => {
 
     await userEvent.click(row);
     expect(window.location.pathname).toBe('/deals/d1');
-    expect(row).toHaveAttribute('aria-selected', 'true');
+    expect(row).toHaveAttribute('aria-current', 'true');
 
     const lines = await screen.findByRole('table', { name: 'Deal lines' });
     const first = within(lines).getByTestId('line-l1');

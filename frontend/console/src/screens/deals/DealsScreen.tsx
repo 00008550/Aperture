@@ -70,7 +70,7 @@ export function DealsScreen() {
           onLoadMore={() => void deals.fetchNextPage()}
           loadingMore={deals.isFetchingNextPage}
           onRetry={() => void deals.refetch()}
-                  />
+        />
 
         {creating && (
           // The selected deal's account seeds the draft once; typing is never overwritten.
@@ -91,7 +91,7 @@ export function DealsScreen() {
             id={selectedId}
             canWrite={canWrite}
             canApprove={canApprove}
-                        onClose={() => navigate('/deals')}
+            onClose={() => navigate('/deals')}
           />
         )}
       </div>

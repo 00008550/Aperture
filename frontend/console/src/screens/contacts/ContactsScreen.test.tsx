@@ -170,6 +170,22 @@ describe('Contacts grid', () => {
     expect(screen.getByRole('button', { name: 'New contact' })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Depart Contact c1' })).toBeDisabled();
   });
+
+  it('Given the grid, when nothing then one row is selected, then no row is current, then exactly that row carries aria-current and none carries aria-selected (edge 21)', async () => {
+    stubFetch(session(), contactsServer([contact('c1'), contact('c2'), contact('c3')]).route);
+    renderAt('/contacts');
+
+    const row = await screen.findByTestId('contact-row-c2');
+    const body = row.closest('tbody')!;
+    expect(body.querySelectorAll('tr[aria-current]')).toHaveLength(0);
+
+    await userEvent.click(row);
+
+    await waitFor(() => expect(row).toHaveAttribute('aria-current', 'true'));
+    expect(body.querySelectorAll('tr[aria-current]')).toHaveLength(1);
+    expect(body.querySelectorAll('tr[aria-selected]')).toHaveLength(0);
+    expect(row).toHaveAttribute('data-selected', 'true');
+  });
 });
 
 describe('Depart', () => {

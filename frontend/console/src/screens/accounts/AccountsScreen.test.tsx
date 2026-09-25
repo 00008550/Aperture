@@ -206,8 +206,29 @@ describe('Accounts grid', () => {
     row.focus();
     await userEvent.keyboard('{Enter}');
 
-    await waitFor(() => expect(row).toHaveAttribute('aria-selected', 'true'));
+    await waitFor(() => expect(row).toHaveAttribute('aria-current', 'true'));
     expect(window.location.pathname).toBe('/accounts/a2');
+  });
+
+  it('Given the grid, when nothing then one row is selected, then no row is current, then exactly that row carries aria-current and none carries aria-selected (edge 21)', async () => {
+    stubFetch(session(), (url) =>
+      url.pathname === '/api/accounts'
+        ? json({ items: [account('a1'), account('a2'), account('a3')], nextCursor: null })
+        : json(account('a2')),
+    );
+    renderAt('/accounts');
+
+    const row = (await screen.findByText('Account a2')).closest('tr')!;
+    const body = row.closest('tbody')!;
+    expect(body.querySelectorAll('tr[aria-current]')).toHaveLength(0);
+
+    await userEvent.click(row);
+
+    await waitFor(() => expect(row).toHaveAttribute('aria-current', 'true'));
+    expect(body.querySelectorAll('tr[aria-current]')).toHaveLength(1);
+    expect(body.querySelectorAll('tr[aria-selected]')).toHaveLength(0);
+    // The styling hook is untouched.
+    expect(row).toHaveAttribute('data-selected', 'true');
   });
 });
 
